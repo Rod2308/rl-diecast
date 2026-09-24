@@ -192,8 +192,8 @@ export async function POST(request: Request) {
 
     const newId = body.id || `prod-${Date.now()}`;
 
-    let images = body.images;
-    if (body.imageUrl && typeof body.imageUrl === 'string') {
+    let images = Array.isArray(body.images) && body.images.length > 0 ? body.images : null;
+    if (!images && body.imageUrl && typeof body.imageUrl === 'string' && body.imageUrl.trim() !== '') {
       images = [
         {
           id: `img-${Date.now()}`,
@@ -202,7 +202,7 @@ export async function POST(request: Request) {
           order: 0,
         },
       ];
-    } else if (!images || !Array.isArray(images) || images.length === 0) {
+    } else if (!images) {
       images = [
         {
           id: `img-${Date.now()}`,
@@ -297,9 +297,12 @@ export async function POST(request: Request) {
           storeName: 'RL Diecast',
           contactEmail: 'contato@rldiecast.com.br',
           contactPhone: '(11) 98765-4321',
+          whatsappNumber: '5511987654321',
+          instagramUrl: 'https://instagram.com/rldiecast',
           pixDiscountPercent: 5,
           freeShippingThreshold: 299,
-          bannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS',
+          topBannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS',
+          topBannerActive: true,
         };
       }
       db.settings.heroProductId = newProduct.id;
@@ -361,7 +364,9 @@ export async function PUT(request: Request) {
 
     // 3. Imagens
     let updatedImages = current.images || [];
-    if (body.imageUrl && typeof body.imageUrl === 'string') {
+    if (Array.isArray(body.images) && body.images.length > 0) {
+      updatedImages = body.images;
+    } else if (body.imageUrl && typeof body.imageUrl === 'string' && body.imageUrl.trim() !== '') {
       updatedImages = [
         {
           id: `img-${Date.now()}`,
@@ -468,9 +473,12 @@ export async function PUT(request: Request) {
           storeName: 'RL Diecast',
           contactEmail: 'contato@rldiecast.com.br',
           contactPhone: '(11) 98765-4321',
+          whatsappNumber: '5511987654321',
+          instagramUrl: 'https://instagram.com/rldiecast',
           pixDiscountPercent: 5,
           freeShippingThreshold: 299,
-          bannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS',
+          topBannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS',
+          topBannerActive: true,
         };
       }
       db.settings.heroProductId = updatedProduct.id;

@@ -9,6 +9,11 @@ import {
   GarageItem,
   NotificationItem,
   PricingRule,
+  Banner,
+  HomeSection,
+  Category,
+  ProductLot,
+  SiteSettings,
 } from './types';
 import { DEFAULT_PRICING_RULES } from './pricing';
 import { generateStandardTitle, generateStandardDescription } from './ads-generator';
@@ -24,15 +29,11 @@ export interface DatabaseSchema {
   garage: GarageItem[];
   notifications: NotificationItem[];
   pricingRules: Record<string, PricingRule>;
-  settings: {
-    storeName: string;
-    contactEmail: string;
-    contactPhone: string;
-    pixDiscountPercent: number;
-    freeShippingThreshold: number;
-    bannerText: string;
-    heroProductId?: string;
-  };
+  settings: SiteSettings;
+  banners: Banner[];
+  homeSections: HomeSection[];
+  categories: Category[];
+  lots: ProductLot[];
 }
 
 function getInitialProducts(): Product[] {
@@ -413,11 +414,158 @@ function getInitialDatabase(): DatabaseSchema {
       storeName: 'RL Diecast',
       contactEmail: 'contato@rldiecast.com.br',
       contactPhone: '(11) 98765-4321',
+      whatsappNumber: '5511987654321',
+      instagramUrl: 'https://instagram.com/rldiecast',
       pixDiscountPercent: 5,
       freeShippingThreshold: 299.0,
-      bannerText: '🚀 PRÉ-VENDAS 2026 ABERTAS • GARANTA SEUS MODELOS MINI GT COM ENTRADA FACILITADA',
+      topBannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS • GARANTA COM ENTRADA A PARTIR DE R$ 15,00',
+      topBannerActive: true,
+      topBannerLink: '/pre-vendas',
     },
+    banners: getInitialBanners(),
+    homeSections: getInitialHomeSections(),
+    categories: getInitialCategories(),
+    lots: getInitialLots(products),
   };
+}
+
+export function getInitialBanners(): Banner[] {
+  return [
+    {
+      id: 'banner-hero-1',
+      title: 'A Garagem Mais Desejada em Escala 1:64',
+      subtitle: 'Lotes Oficiais Mini GT Brasil Disponíveis',
+      description: 'Garanta réplicas de precisão das maiores lendas automotivas. Pré-vendas com reserva facilitada a partir de R$ 15,00 e quitação apenas quando o produto chegar ao Brasil.',
+      tag: 'LOTES OFICIAIS MINI GT BRASIL DISPONÍVEIS',
+      desktopImageUrl: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1600&q=80',
+      mobileImageUrl: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80',
+      buttonText: 'Explorar Pré-Vendas Oficiais',
+      buttonUrl: '/pre-vendas',
+      buttonActive: true,
+      secondaryButtonText: 'Ver Pronta-Entrega',
+      secondaryButtonUrl: '/pronta-entrega',
+      secondaryButtonActive: true,
+      displayOrder: 1,
+      active: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'banner-hero-2',
+      title: 'Kaido House Pro Street Series',
+      subtitle: 'Datsun 510, NSX e Skyline R34 Custom',
+      description: 'Edições de altíssimo detalhamento com capô funcional, motores cromados e pinturas personalizadas projetadas por Jun Imai.',
+      tag: 'EDIÇÕES ESPECIAIS COLECIONADOR',
+      desktopImageUrl: 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=1600&q=80',
+      mobileImageUrl: 'https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=800&q=80',
+      buttonText: 'Ver Linha Kaido House',
+      buttonUrl: '/catalogo?marca=Kaido+House',
+      buttonActive: true,
+      secondaryButtonText: 'Ver Catálogo Geral',
+      secondaryButtonUrl: '/catalogo',
+      secondaryButtonActive: true,
+      displayOrder: 2,
+      active: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+}
+
+export function getInitialHomeSections(): HomeSection[] {
+  return [
+    {
+      id: 'sec-hero',
+      sectionKey: 'hero',
+      title: 'Showroom Principal',
+      subtitle: 'Banner e Destaque da Home',
+      displayOrder: 1,
+      active: true,
+    },
+    {
+      id: 'sec-categories',
+      sectionKey: 'categories',
+      title: 'Marcas Especializadas',
+      subtitle: 'Explore os catálogos dos maiores fabricantes mundiais',
+      displayOrder: 2,
+      active: true,
+    },
+    {
+      id: 'sec-presales',
+      sectionKey: 'presales',
+      title: 'Pré-Vendas Abertas',
+      subtitle: 'Garanta seu modelo no lote oficial pagando apenas a entrada',
+      displayOrder: 3,
+      active: true,
+    },
+    {
+      id: 'sec-how-it-works',
+      sectionKey: 'how_it_works',
+      title: 'Como Funciona a Pré-Venda na RL Diecast?',
+      subtitle: 'Sistema seguro e planejado para o colecionador nunca perder um lote raro',
+      displayOrder: 4,
+      active: true,
+    },
+    {
+      id: 'sec-ready-to-ship',
+      sectionKey: 'ready_to_ship',
+      title: 'Pronta-Entrega Colecionáveis 1:64',
+      subtitle: 'Modelos em estoque físico com despacho em até 24 horas úteis',
+      displayOrder: 5,
+      active: true,
+    },
+    {
+      id: 'sec-featured',
+      sectionKey: 'featured_products',
+      title: 'Miniaturas em Destaque',
+      subtitle: 'Seleção especial dos modelos mais cobiçados pelos colecionadores',
+      displayOrder: 6,
+      active: true,
+    },
+    {
+      id: 'sec-garage',
+      sectionKey: 'garage_cta',
+      title: 'Minha Garagem',
+      subtitle: 'Organize sua coleção 1:64 em um só lugar',
+      displayOrder: 7,
+      active: true,
+    },
+  ];
+}
+
+export function getInitialCategories(): Category[] {
+  return [
+    { id: 'cat-1', name: 'Mini GT', slug: 'mini-gt', displayOrder: 1, active: true },
+    { id: 'cat-2', name: 'Kaido House', slug: 'kaido-house', displayOrder: 2, active: true },
+    { id: 'cat-3', name: 'Tarmac Works', slug: 'tarmac-works', displayOrder: 3, active: true },
+    { id: 'cat-4', name: 'BBR Models', slug: 'bbr-models', displayOrder: 4, active: true },
+    { id: 'cat-5', name: 'Pop Race', slug: 'pop-race', displayOrder: 5, active: true },
+    { id: 'cat-6', name: 'Inno64', slug: 'inno64', displayOrder: 6, active: true },
+    { id: 'cat-7', name: 'Hot Wheels', slug: 'hot-wheels', displayOrder: 7, active: true },
+    { id: 'cat-8', name: 'Dioramas', slug: 'dioramas', displayOrder: 8, active: true },
+    { id: 'cat-9', name: 'Acessórios & Expositores', slug: 'acessorios', displayOrder: 9, active: true },
+  ];
+}
+
+export function getInitialLots(products: Product[]): ProductLot[] {
+  return products
+    .filter((p) => p.isPreOrder)
+    .map((p) => ({
+      id: `lot-${p.id}-1`,
+      productId: p.id,
+      lotNumber: 1,
+      lotName: 'Lote 01 Oficial',
+      arrivalForecast: p.arrivalForecast || '2026',
+      stockTotal: p.stock || 24,
+      stockReserved: 0,
+      downPaymentValue: p.downPaymentValue || 15.0,
+      balanceValue: p.balanceValue || Math.max(0, p.salePrice - p.downPaymentValue),
+      totalPrice: p.salePrice,
+      status: 'ABERTO' as const,
+      active: true,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+    }));
 }
 
 let inMemoryDb: DatabaseSchema | null = null;
@@ -427,13 +575,23 @@ export function getDatabase(): DatabaseSchema {
     if (fs.existsSync(DB_FILE_PATH)) {
       const fileData = fs.readFileSync(DB_FILE_PATH, 'utf-8');
       inMemoryDb = JSON.parse(fileData);
-      return inMemoryDb!;
+      if (inMemoryDb) {
+        if (!inMemoryDb.banners || inMemoryDb.banners.length === 0) inMemoryDb.banners = getInitialBanners();
+        if (!inMemoryDb.homeSections || inMemoryDb.homeSections.length === 0) inMemoryDb.homeSections = getInitialHomeSections();
+        if (!inMemoryDb.categories || inMemoryDb.categories.length === 0) inMemoryDb.categories = getInitialCategories();
+        if (!inMemoryDb.lots || inMemoryDb.lots.length === 0) inMemoryDb.lots = getInitialLots(inMemoryDb.products || []);
+        return inMemoryDb;
+      }
     }
   } catch (err) {
     console.error('Erro ao ler DB persistente:', err);
   }
 
   if (inMemoryDb) {
+    if (!inMemoryDb.banners) inMemoryDb.banners = getInitialBanners();
+    if (!inMemoryDb.homeSections) inMemoryDb.homeSections = getInitialHomeSections();
+    if (!inMemoryDb.categories) inMemoryDb.categories = getInitialCategories();
+    if (!inMemoryDb.lots) inMemoryDb.lots = getInitialLots(inMemoryDb.products || []);
     return inMemoryDb;
   }
 
@@ -490,6 +648,81 @@ export function mapSupabaseProductToProduct(row: any): Product {
     sourceId: row.source_id || undefined,
     sourceUrl: row.source_url || undefined,
     lastSyncedAt: row.last_synced_at || undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapSupabaseBannerToBanner(row: any): Banner {
+  return {
+    id: row.id,
+    title: row.title,
+    subtitle: row.subtitle || undefined,
+    description: row.description || undefined,
+    tag: row.tag || undefined,
+    desktopImageUrl: row.desktop_image_url,
+    desktopStoragePath: row.desktop_storage_path || undefined,
+    mobileImageUrl: row.mobile_image_url || undefined,
+    mobileStoragePath: row.mobile_storage_path || undefined,
+    buttonText: row.button_text || undefined,
+    buttonUrl: row.button_url || undefined,
+    buttonActive: row.button_active ?? true,
+    secondaryButtonText: row.secondary_button_text || undefined,
+    secondaryButtonUrl: row.secondary_button_url || undefined,
+    secondaryButtonActive: row.secondary_button_active ?? true,
+    displayOrder: Number(row.display_order || 1),
+    active: Boolean(row.active),
+    startsAt: row.starts_at || undefined,
+    endsAt: row.ends_at || undefined,
+    targetType: row.target_type || 'URL',
+    targetId: row.target_id || undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapSupabaseHomeSectionToHomeSection(row: any): HomeSection {
+  return {
+    id: row.id,
+    sectionKey: row.section_key,
+    title: row.title,
+    subtitle: row.subtitle || undefined,
+    displayOrder: Number(row.display_order || 1),
+    active: Boolean(row.active),
+    settings: row.settings || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapSupabaseCategoryToCategory(row: any): Category {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    description: row.description || undefined,
+    imageUrl: row.image_url || undefined,
+    displayOrder: Number(row.display_order || 1),
+    active: Boolean(row.active),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapSupabaseLotToLot(row: any): ProductLot {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    lotNumber: Number(row.lot_number || 1),
+    lotName: row.lot_name,
+    arrivalForecast: row.arrival_forecast || undefined,
+    stockTotal: Number(row.stock_total || 0),
+    stockReserved: Number(row.stock_reserved || 0),
+    downPaymentValue: Number(row.down_payment_value || 0),
+    balanceValue: Number(row.balance_value || 0),
+    totalPrice: Number(row.total_price || 0),
+    status: row.status,
+    active: Boolean(row.active),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

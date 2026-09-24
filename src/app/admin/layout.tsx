@@ -12,6 +12,8 @@ import {
   Settings,
   ArrowLeft,
   ShieldAlert,
+  LayoutTemplate,
+  Tags,
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -19,7 +21,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navLinks = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-    { name: 'Produtos & Aprovação', href: '/admin/produtos', icon: Package },
+    { name: 'Página Inicial & Banners', href: '/admin/banners', icon: LayoutTemplate },
+    { name: 'Categorias & Marcas', href: '/admin/categorias', icon: Tags },
+    { name: 'Produtos & Catálogo', href: '/admin/produtos', icon: Package },
     { name: 'Pré-Vendas & Lotes', href: '/admin/pre-vendas', icon: Flame },
     { name: 'Pedidos & Envios', href: '/admin/pedidos', icon: ShoppingBag },
     { name: 'Sincronização Mini GT', href: '/admin/sincronizacao', icon: RefreshCw },

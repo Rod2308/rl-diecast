@@ -22,8 +22,13 @@ import {
   DollarSign,
   TrendingUp,
   Check,
+  Upload,
+  Image as ImageIcon,
+  ArrowLeft,
+  ArrowRight,
+  Loader2,
 } from 'lucide-react';
-import { Product, ProductStatus } from '@/lib/types';
+import { Product, ProductStatus, ProductImage, Category } from '@/lib/types';
 import { calculatePricing } from '@/lib/pricing';
 import { generateStandardTitle, generateStandardDescription } from '@/lib/ads-generator';
 
@@ -37,6 +42,7 @@ function AdminProductsContent() {
   const initialStatus = searchParams.get('status') || '';
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>(initialStatus || 'ALL');
   const [search, setSearch] = useState('');
@@ -44,9 +50,12 @@ function AdminProductsContent() {
   // Edit / Create Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<EditingProductForm | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, []);
 
   const loadProducts = async () => {
@@ -61,6 +70,18 @@ function AdminProductsContent() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const res = await fetch('/api/categories?admin=true', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.categories) {
+        setCategories(data.categories);
+      }
+    } catch (e) {
+      console.error('Erro ao carregar categorias:', e);
     }
   };
 
@@ -172,6 +193,7 @@ function AdminProductsContent() {
   };
 
   const openNewProductModal = () => {
+    setUrlInput('');
     setEditingProduct({
       title: '',
       brand: 'Mini GT',
@@ -190,19 +212,14 @@ function AdminProductsContent() {
       status: 'PRE_VENDA',
       material: 'Diecast metal c/ pneus de borracha',
       packagingType: 'Caixa de colecionador lacrada',
-      images: [
-        {
-          id: 'img-new-1',
-          url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80',
-          isMain: true,
-          order: 0,
-        },
-      ],
+      images: [],
+      imageUrl: '',
     });
     setIsModalOpen(true);
   };
 
   const openEditModal = (product: Product) => {
+    setUrlInput('');
     const cost = Number(product.costPrice) || 0;
     const sale = Number(product.salePrice) || 0;
     const down = Number(product.downPaymentValue) || 0;
@@ -211,15 +228,139 @@ function AdminProductsContent() {
         ? Number(product.balanceValue)
         : Math.max(0, Math.round((sale - down) * 100) / 100);
 
+    const legacyUrl = (product as any).imageUrl;
+    const initialImages: ProductImage[] =
+      product.images && product.images.length > 0
+        ? product.images
+        : legacyUrl
+        ? [
+            {
+              id: 'img-1',
+              url: legacyUrl,
+              isMain: true,
+              order: 0,
+            },
+          ]
+        : [];
+
     setEditingProduct({
       ...product,
       costPrice: cost,
       salePrice: sale,
       downPaymentValue: down,
       balanceValue: bal,
-      imageUrl: product.images?.[0]?.url || '',
+      images: initialImages,
+      imageUrl: initialImages.find((img) => img.isMain)?.url || initialImages[0]?.url || legacyUrl || '',
     });
     setIsModalOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !editingProduct) return;
+    setIsUploading(true);
+
+    try {
+      const newImages: ProductImage[] = [...(editingProduct.images || [])];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'products');
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.url) {
+          const isFirst = newImages.length === 0;
+          newImages.push({
+            id: `img-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+            url: data.url,
+            isMain: isFirst,
+            order: newImages.length,
+          });
+        } else {
+          alert(`Erro ao subir imagem ${file.name}: ${data.error || 'Erro desconhecido'}`);
+        }
+      }
+
+      setEditingProduct({
+        ...editingProduct,
+        images: newImages,
+        imageUrl: newImages.find((img) => img.isMain)?.url || newImages[0]?.url || '',
+      });
+    } catch (err) {
+      console.error('Erro no upload de imagem:', err);
+      alert('Erro ao enviar imagem. Verifique a conexão com o Supabase Storage.');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleAddImageUrl = () => {
+    if (!urlInput.trim() || !editingProduct) return;
+    const newImages: ProductImage[] = [...(editingProduct.images || [])];
+    const isFirst = newImages.length === 0;
+    newImages.push({
+      id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      url: urlInput.trim(),
+      isMain: isFirst,
+      order: newImages.length,
+    });
+
+    setEditingProduct({
+      ...editingProduct,
+      images: newImages,
+      imageUrl: newImages.find((img) => img.isMain)?.url || newImages[0]?.url || '',
+    });
+    setUrlInput('');
+  };
+
+  const handleSetMainImage = (index: number) => {
+    if (!editingProduct || !editingProduct.images) return;
+    const updated = editingProduct.images.map((img, idx) => ({
+      ...img,
+      isMain: idx === index,
+    }));
+    setEditingProduct({
+      ...editingProduct,
+      images: updated,
+      imageUrl: updated[index]?.url || '',
+    });
+  };
+
+  const handleRemoveImage = (index: number) => {
+    if (!editingProduct || !editingProduct.images) return;
+    const filtered = editingProduct.images.filter((_, idx) => idx !== index);
+    if (filtered.length > 0 && !filtered.some((img) => img.isMain)) {
+      filtered[0].isMain = true;
+    }
+    const reordered = filtered.map((img, idx) => ({ ...img, order: idx }));
+    setEditingProduct({
+      ...editingProduct,
+      images: reordered,
+      imageUrl: reordered.find((img) => img.isMain)?.url || reordered[0]?.url || '',
+    });
+  };
+
+  const handleMoveImage = (index: number, direction: 'left' | 'right') => {
+    if (!editingProduct || !editingProduct.images) return;
+    const targetIndex = direction === 'left' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= editingProduct.images.length) return;
+
+    const copy = [...editingProduct.images];
+    const temp = copy[index];
+    copy[index] = copy[targetIndex];
+    copy[targetIndex] = temp;
+
+    const reordered = copy.map((img, idx) => ({ ...img, order: idx }));
+    setEditingProduct({
+      ...editingProduct,
+      images: reordered,
+    });
   };
 
   const handleSetHero = async (product: Product) => {
@@ -254,8 +395,23 @@ function AdminProductsContent() {
           ? Number(editingProduct.balanceValue)
           : Math.max(0, Math.round((salePrice - downPaymentValue) * 100) / 100);
 
+      let finalImages = editingProduct.images || [];
+      if (finalImages.length > 0) {
+        if (!finalImages.some((i) => i.isMain)) {
+          finalImages[0].isMain = true;
+        }
+        finalImages = finalImages.map((img, idx) => ({ ...img, order: idx }));
+      }
+      const primaryUrl =
+        finalImages.find((img) => img.isMain)?.url ||
+        finalImages[0]?.url ||
+        editingProduct.imageUrl ||
+        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80';
+
       const payload = {
         ...editingProduct,
+        images: finalImages,
+        imageUrl: primaryUrl,
         costPrice,
         salePrice,
         downPaymentValue,
@@ -619,56 +775,187 @@ function AdminProductsContent() {
                 />
               </div>
 
-              {/* Foto Principal com Preview ao Vivo */}
-              <div className="space-y-2 p-3 bg-neutral-950/80 border border-white/10 rounded-xl">
-                <label className="text-neutral-300 font-semibold block">Foto Principal da Miniatura (URL da Imagem)</label>
-                <div className="flex gap-3 items-center">
-                  <div className="w-16 h-16 rounded-lg bg-black border border-white/10 overflow-hidden shrink-0 flex items-center justify-center">
-                    {editingProduct.imageUrl || editingProduct.images?.[0]?.url ? (
-                      <img
-                        src={editingProduct.imageUrl || editingProduct.images?.[0]?.url}
-                        alt="Preview da Foto"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-[10px] text-neutral-500">Sem foto</span>
-                    )}
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <input
-                      type="url"
-                      placeholder="https://exemplo.com/foto-do-carro.jpg"
-                      value={editingProduct.imageUrl || (editingProduct.images?.[0]?.url || '')}
-                      onChange={(e) =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          imageUrl: e.target.value,
-                        })
-                      }
-                      className="w-full bg-neutral-900 border border-white/10 rounded-lg p-2 text-white text-xs font-mono"
-                    />
+              {/* Galeria de Fotos da Miniatura (Multi-Imagens & Upload Supabase Storage) */}
+              <div className="space-y-3 p-4 bg-neutral-950/90 border border-white/10 rounded-2xl">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <label className="text-white font-bold text-xs flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-amber-400" />
+                      Galeria de Fotos da Miniatura ({editingProduct.images?.length || 0} fotos)
+                    </label>
                     <span className="text-[10px] text-neutral-400 block">
-                      Cole a URL da foto. O preview ao lado atualiza em tempo real.
+                      Faça upload direto para o Supabase Storage ou adicione URLs externas. Defina a foto principal e ordene.
                     </span>
                   </div>
+
+                  {/* Botão de Upload Direto para Storage */}
+                  <label
+                    className={`px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-amber-600/20 cursor-pointer ${
+                      isUploading ? 'opacity-50 pointer-events-none' : ''
+                    }`}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Enviando fotos...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload de Fotos (Storage)</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={isUploading}
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
+
+                {/* Campo para adicionar via URL direta */}
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="Ou cole a URL da imagem aqui (https://...)"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddImageUrl();
+                      }
+                    }}
+                    className="flex-1 bg-neutral-900 border border-white/10 rounded-xl px-3 py-1.5 text-white text-xs font-mono placeholder:text-neutral-500 focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddImageUrl}
+                    className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold text-xs transition-colors shrink-0"
+                  >
+                    Adicionar Link
+                  </button>
+                </div>
+
+                {/* Grid de Imagens da Galeria */}
+                {editingProduct.images && editingProduct.images.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 pt-2">
+                    {editingProduct.images.map((img, idx) => {
+                      const isMain = img.isMain || (!editingProduct.images?.some((i) => i.isMain) && idx === 0);
+                      return (
+                        <div
+                          key={img.id || idx}
+                          className={`relative group rounded-xl overflow-hidden border transition-all ${
+                            isMain
+                              ? 'border-amber-500 ring-2 ring-amber-500/30 bg-amber-500/5'
+                              : 'border-white/10 hover:border-white/30 bg-neutral-900'
+                          }`}
+                        >
+                          {/* Thumbnail */}
+                          <div className="aspect-square w-full overflow-hidden bg-black flex items-center justify-center">
+                            <img
+                              src={img.url}
+                              alt={`Foto ${idx + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+
+                          {/* Badges & Actions Overlay */}
+                          <div className="p-2 space-y-1.5 bg-neutral-950/90 border-t border-white/5">
+                            {isMain ? (
+                              <div className="flex items-center justify-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 py-0.5 rounded">
+                                <Star className="w-3 h-3 fill-amber-400" />
+                                <span>Foto Principal</span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSetMainImage(idx)}
+                                className="w-full text-center text-[10px] text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 py-0.5 rounded transition-colors"
+                              >
+                                Tornar Principal
+                              </button>
+                            )}
+
+                            <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => handleMoveImage(idx, 'left')}
+                                  className="p-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Mover foto para esquerda"
+                                >
+                                  <ArrowLeft className="w-3 h-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={idx === (editingProduct.images?.length || 1) - 1}
+                                  onClick={() => handleMoveImage(idx, 'right')}
+                                  className="p-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                  title="Mover foto para direita"
+                                >
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage(idx)}
+                                className="p-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                                title="Excluir imagem da galeria"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-6 border-2 border-dashed border-white/10 rounded-xl text-center space-y-2">
+                    <ImageIcon className="w-8 h-8 text-neutral-600 mx-auto" />
+                    <p className="text-xs text-neutral-400">Nenhuma foto adicionada ainda.</p>
+                    <p className="text-[10px] text-neutral-500">Faça o upload ou cole um link acima.</p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-neutral-300 font-semibold">Marca</label>
+                  <label className="text-neutral-300 font-semibold">Marca / Categoria</label>
                   <select
                     value={editingProduct.brand}
                     onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })}
                     className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
                   >
-                    <option value="Mini GT">Mini GT</option>
-                    <option value="Kaido House">Kaido House</option>
-                    <option value="Tarmac Works">Tarmac Works</option>
-                    <option value="BBR Models">BBR Models</option>
-                    <option value="Pop Race">Pop Race</option>
-                    <option value="Inno64">Inno64</option>
-                    <option value="Hot Wheels">Hot Wheels</option>
+                    {categories && categories.length > 0 ? (
+                      categories.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Mini GT">Mini GT</option>
+                        <option value="Kaido House">Kaido House</option>
+                        <option value="Tarmac Works">Tarmac Works</option>
+                        <option value="BBR Models">BBR Models</option>
+                        <option value="Pop Race">Pop Race</option>
+                        <option value="Inno64">Inno64</option>
+                        <option value="Hot Wheels">Hot Wheels</option>
+                      </>
+                    )}
+                    {editingProduct.brand &&
+                      !categories.some(
+                        (c) => c.name.toLowerCase() === editingProduct.brand?.toLowerCase()
+                      ) && (
+                        <option value={editingProduct.brand}>{editingProduct.brand}</option>
+                      )}
                   </select>
                 </div>
 

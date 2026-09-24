@@ -204,3 +204,89 @@ export interface NotificationItem {
   read: boolean;
   createdAt: string;
 }
+
+export interface Banner {
+  id: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  tag?: string;
+  desktopImageUrl: string;
+  desktopStoragePath?: string;
+  mobileImageUrl?: string;
+  mobileStoragePath?: string;
+  buttonText?: string;
+  buttonUrl?: string;
+  buttonActive?: boolean;
+  secondaryButtonText?: string;
+  secondaryButtonUrl?: string;
+  secondaryButtonActive?: boolean;
+  displayOrder: number;
+  active: boolean;
+  startsAt?: string;
+  endsAt?: string;
+  targetType?: 'URL' | 'PRODUCT' | 'CATEGORY' | 'PRESALE';
+  targetId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface HomeSection {
+  id: string;
+  sectionKey: 'hero' | 'categories' | 'presales' | 'ready_to_ship' | 'featured_products' | 'how_it_works' | 'garage_cta';
+  title: string;
+  subtitle?: string;
+  displayOrder: number;
+  active: boolean;
+  settings?: Record<string, any>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  imageUrl?: string;
+  displayOrder: number;
+  active: boolean;
+  productCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductLot {
+  id: string;
+  productId: string;
+  lotNumber: number;
+  lotName: string;
+  arrivalForecast?: string;
+  stockTotal: number;
+  stockReserved: number;
+  downPaymentValue: number;
+  balanceValue: number;
+  totalPrice: number;
+  status: 'ABERTO' | 'ESGOTADO' | 'EM_TRANSITO' | 'NO_BRASIL' | 'FINALIZADO' | 'CANCELADO';
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SiteSettings {
+  storeName: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  contactEmail: string;
+  contactPhone: string;
+  whatsappNumber: string;
+  instagramUrl: string;
+  pixDiscountPercent: number;
+  freeShippingThreshold: number;
+  topBannerText: string;
+  topBannerActive: boolean;
+  topBannerLink?: string;
+  heroProductId?: string;
+  featuredProductIds?: string[];
+  featuredPreOrderIds?: string[];
+}
