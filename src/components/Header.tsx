@@ -17,12 +17,15 @@ import {
   Menu,
   X,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
+import { useAdminAuth } from '@/lib/admin-auth-context';
 
 export default function Header() {
   const router = useRouter();
   const { totalItems, setIsCartOpen } = useCart();
+  const { isAdmin, openLoginModal } = useAdminAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(2);
@@ -97,14 +100,25 @@ export default function Header() {
               <span className="hidden md:inline">Minha Garagem</span>
             </Link>
 
-            {/* Admin Link */}
-            <Link
-              href="/admin"
-              className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400/20 text-xs font-bold transition-all"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
-              <span>Painel Admin</span>
-            </Link>
+            {/* Admin Link / Login Trigger */}
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 text-neutral-950 font-black text-xs shadow-md shadow-amber-500/20 hover:bg-amber-400 transition-all"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Painel Admin</span>
+              </Link>
+            ) : (
+              <button
+                onClick={openLoginModal}
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-neutral-400 hover:text-amber-400 hover:bg-white/5 text-xs font-semibold transition-all cursor-pointer"
+                title="Acesso com Senha do Administrador"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Admin</span>
+              </button>
+            )}
 
             {/* Minha Conta */}
             <Link
@@ -253,13 +267,27 @@ export default function Header() {
               <Car className="w-4 h-4 text-amber-400" />
               Minha Garagem
             </Link>
-            <Link
-              href="/admin"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="p-3 rounded-xl bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30"
-            >
-              Painel Admin
-            </Link>
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-3 rounded-xl bg-amber-500 text-neutral-950 font-black text-xs flex items-center justify-center gap-2"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span>Painel Admin</span>
+              </Link>
+            ) : (
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  openLoginModal();
+                }}
+                className="p-3 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white text-xs font-bold border border-white/10 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Acesso Admin</span>
+              </button>
+            )}
           </div>
 
           {/* Marcas no Mobile Menu */}

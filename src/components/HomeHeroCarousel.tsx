@@ -18,6 +18,7 @@ import {
   Save,
 } from 'lucide-react';
 import { Banner, Product } from '@/lib/types';
+import { useAdminAuth } from '@/lib/admin-auth-context';
 
 interface HomeHeroCarouselProps {
   banners: Banner[];
@@ -25,6 +26,7 @@ interface HomeHeroCarouselProps {
 }
 
 export default function HomeHeroCarousel({ banners, heroProduct }: HomeHeroCarouselProps) {
+  const { isAdmin } = useAdminAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
@@ -237,15 +239,17 @@ export default function HomeHeroCarousel({ banners, heroProduct }: HomeHeroCarou
           {/* Visual Showcase do Banner / Miniatura */}
           <div className="lg:col-span-5 relative">
             <div className="relative rounded-3xl bg-gradient-to-b from-[#151a29] to-[#0c1017] border border-white/15 p-5 shadow-2xl shadow-black/90 overflow-hidden group hover:border-amber-400/40 transition-all">
-              {/* Botão de Troca Rápida Direto na Vitrine */}
-              <button
-                onClick={openProductPicker}
-                className="absolute top-4 left-4 z-30 px-2.5 py-1 rounded-lg bg-black/80 hover:bg-amber-500 hover:text-black border border-amber-400/40 text-amber-300 text-[10px] font-bold flex items-center gap-1.5 transition-all shadow-lg backdrop-blur-sm cursor-pointer"
-                title="Alterar produto principal diretamente pelo site"
-              >
-                <SlidersHorizontal className="w-3 h-3 text-amber-400" />
-                <span>⚙️ Alterar Produto</span>
-              </button>
+              {/* Botão de Troca Rápida Direto na Vitrine (Apenas Admin Autenticado) */}
+              {isAdmin && (
+                <button
+                  onClick={openProductPicker}
+                  className="absolute top-4 left-4 z-30 px-2.5 py-1 rounded-lg bg-black/80 hover:bg-amber-500 hover:text-black border border-amber-400/40 text-amber-300 text-[10px] font-bold flex items-center gap-1.5 transition-all shadow-lg backdrop-blur-sm cursor-pointer"
+                  title="Alterar produto principal diretamente pelo site (Visível apenas para Administradores)"
+                >
+                  <SlidersHorizontal className="w-3 h-3 text-amber-400" />
+                  <span>⚙️ Alterar Produto</span>
+                </button>
+              )}
 
               <div className="absolute top-4 right-4 z-20 bg-gradient-to-r from-amber-400 to-amber-500 text-neutral-950 font-black text-[10px] uppercase px-3 py-1 rounded-md shadow-lg shadow-amber-500/30">
                 {activeHero?.isPreOrder ? 'Destaque Pré-venda' : 'Destaque Showroom'}

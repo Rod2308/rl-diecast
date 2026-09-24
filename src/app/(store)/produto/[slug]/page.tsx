@@ -26,9 +26,11 @@ import {
 } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useCart } from '@/lib/cart-context';
+import { useAdminAuth } from '@/lib/admin-auth-context';
 import ProductCard from '@/components/ProductCard';
 
 export default function ProductDetailPage() {
+  const { isAdmin } = useAdminAuth();
   const params = useParams();
   const slug = params?.slug as string;
   const router = useRouter();
@@ -321,49 +323,51 @@ export default function ProductDetailPage() {
             </p>
           </div>
 
-          {/* AÇÕES DE ADMINISTRADOR NA PÁGINA DO PRODUTO */}
-          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-400/30 space-y-2.5 text-xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <span className="font-bold text-white text-[11px] uppercase tracking-wider">
-                  Controle do Administrador
-                </span>
+          {/* AÇÕES DE ADMINISTRADOR NA PÁGINA DO PRODUTO (Apenas Admin Autenticado) */}
+          {isAdmin && (
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-400/30 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span className="font-bold text-white text-[11px] uppercase tracking-wider">
+                    Controle do Administrador
+                  </span>
+                </div>
+                <Link
+                  href="/admin/produtos"
+                  className="text-[11px] text-neutral-400 hover:text-amber-300 transition-colors flex items-center gap-1 font-semibold"
+                >
+                  <span>Painel de Produtos</span>
+                  <SlidersHorizontal className="w-3 h-3 text-amber-400" />
+                </Link>
               </div>
-              <Link
-                href="/admin/produtos"
-                className="text-[11px] text-neutral-400 hover:text-amber-300 transition-colors flex items-center gap-1 font-semibold"
-              >
-                <span>Painel de Produtos</span>
-                <SlidersHorizontal className="w-3 h-3 text-amber-400" />
-              </Link>
-            </div>
 
-            {heroSuccessMessage && (
-              <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-bounce">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>✅ Esta miniatura agora é o Produto Principal da Home!</span>
+              {heroSuccessMessage && (
+                <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-bounce">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>✅ Esta miniatura agora é o Produto Principal da Home!</span>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  onClick={handleSetThisProductAsHero}
+                  disabled={settingAsHero}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer transition-all"
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  <span>{settingAsHero ? 'Salvando...' : 'Definir como Produto Principal da Home'}</span>
+                </button>
+
+                <Link
+                  href="/admin/banners"
+                  className="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white font-bold text-xs flex items-center gap-1.5 border border-white/10"
+                >
+                  <span>Ver CMS da Home</span>
+                </Link>
               </div>
-            )}
-
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button
-                onClick={handleSetThisProductAsHero}
-                disabled={settingAsHero}
-                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20 cursor-pointer transition-all"
-              >
-                <Flame className="w-3.5 h-3.5" />
-                <span>{settingAsHero ? 'Salvando...' : 'Definir como Produto Principal da Home'}</span>
-              </button>
-
-              <Link
-                href="/admin/banners"
-                className="px-3.5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white font-bold text-xs flex items-center gap-1.5 border border-white/10"
-              >
-                <span>Ver CMS da Home</span>
-              </Link>
             </div>
-          </div>
+          )}
 
           {/* Pre-order or Ready to ship pricing block */}
           {product.isPreOrder ? (

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getLiveSiteSettings, saveLiveSiteSettings, setLiveHeroProduct } from '@/lib/products-service';
+import { isAdminAuthenticated, verifyAdminPassword } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -18,6 +19,20 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const isAuth = await isAdminAuthenticated();
+    const authHeader = request.headers.get('x-admin-password');
+    const isHeaderValid = Boolean(authHeader && verifyAdminPassword(authHeader));
+
+    if (!isAuth && !isHeaderValid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Acesso negado. Apenas o perfil administrador autenticado com senha pode alterar estas configurações.',
+        },
+        { status: 401, headers: NO_CACHE_HEADERS }
+      );
+    }
+
     const body = await request.json();
     const updated = await saveLiveSiteSettings(body);
 
