@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Sparkles,
   Star,
+  Trash2,
 } from 'lucide-react';
 import { Product, ProductStatus } from '@/lib/types';
 import { calculatePricing } from '@/lib/pricing';
@@ -60,22 +61,44 @@ function AdminProductsContent() {
     }
   };
 
-  const handleApprove = (product: Product) => {
-    const updated = products.map((p) =>
-      p.id === product.id ? { ...p, status: (p.isPreOrder ? 'PRE_VENDA' : 'PRONTA_ENTREGA') as ProductStatus } : p
-    );
-    setProducts(updated);
-    alert(`Produto "${product.title}" aprovado e publicado com sucesso!`);
+  const handleApprove = async (product: Product) => {
+    const newStatus = product.isPreOrder ? 'PRE_VENDA' : 'PRONTA_ENTREGA';
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: product.id, status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === product.id ? { ...p, status: newStatus as ProductStatus } : p))
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleReject = (product: Product) => {
-    const updated = products.map((p) =>
-      p.id === product.id ? { ...p, status: 'ENCERRADO' as ProductStatus } : p
-    );
-    setProducts(updated);
+  const handleReject = async (product: Product) => {
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: product.id, status: 'ENCERRADO' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === product.id ? { ...p, status: 'ENCERRADO' as ProductStatus } : p))
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleTogglePublish = (product: Product) => {
+  const handleTogglePublish = async (product: Product) => {
     const newStatus =
       product.status === 'RASCUNHO' || product.status === 'AGUARDANDO_APROVACAO' || product.status === 'ENCERRADO'
         ? product.isPreOrder
@@ -83,22 +106,66 @@ function AdminProductsContent() {
           : 'PRONTA_ENTREGA'
         : 'RASCUNHO';
 
-    setProducts((prev) =>
-      prev.map((p) => (p.id === product.id ? { ...p, status: newStatus as ProductStatus } : p))
-    );
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: product.id, status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === product.id ? { ...p, status: newStatus as ProductStatus } : p))
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleDuplicate = (product: Product) => {
-    const duplicated: Product = {
-      ...product,
-      id: `prod-${Date.now()}`,
-      sku: `${product.sku}-COPY`,
-      title: `${product.title} (Cópia)`,
-      slug: `${product.slug}-copia`,
-      status: 'RASCUNHO',
-      createdAt: new Date().toISOString(),
-    };
-    setProducts([duplicated, ...products]);
+  const handleDelete = async (product: Product) => {
+    const confirmDelete = window.confirm(
+      `Deseja realmente excluir permanentemente a miniatura:\n"${product.title}"?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const res = await fetch(`/api/products?id=${encodeURIComponent(product.id)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProducts((prev) => prev.filter((p) => p.id !== product.id));
+      } else {
+        alert(data.error || 'Erro ao excluir produto');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDuplicate = async (product: Product) => {
+    try {
+      const duplicated = {
+        ...product,
+        sku: `${product.sku}-COPY`,
+        title: `${product.title} (Cópia)`,
+        slug: `${product.slug}-copia-${Date.now()}`,
+        status: 'RASCUNHO',
+      };
+      delete (duplicated as any).id;
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(duplicated),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadProducts();
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const openNewProductModal = () => {
@@ -433,6 +500,15 @@ function AdminProductsContent() {
                         title="Duplicar Produto"
                       >
                         <Copy className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Excluir Miniatura */}
+                      <button
+                        onClick={() => handleDelete(p)}
+                        className="p-1 rounded text-neutral-400 hover:text-red-400 hover:bg-neutral-800"
+                        title="Excluir Miniatura Permanentemente"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
 
                       <a
