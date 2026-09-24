@@ -290,3 +290,28 @@ export interface SiteSettings {
   featuredProductIds?: string[];
   featuredPreOrderIds?: string[];
 }
+
+export interface CustomerAddress {
+  id?: string;
+  label?: string; // Casa, Trabalho
+  recipientName: string;
+  street: string;
+  number: string;
+  complement?: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  cep: string;
+  isDefault?: boolean;
+}
+
+export interface Customer {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string;
+  cpf?: string;
+  createdAt: string;
+  addresses?: CustomerAddress[];
+}
+

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { CartProvider } from '@/lib/cart-context';
 import { AdminAuthProvider } from '@/lib/admin-auth-context';
+import { CustomerAuthProvider } from '@/lib/customer-auth-context';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import MobileBottomNav from '@/components/MobileBottomNav';
@@ -24,15 +25,17 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark bg-[#0a0c12] text-neutral-100 antialiased selection:bg-amber-500 selection:text-black">
       <body className="min-h-screen flex flex-col bg-[#0a0c12] text-neutral-100 font-sans pb-16 md:pb-0">
-        <AdminAuthProvider>
-          <CartProvider>
-            <Header />
-            <CartDrawer />
-            <main className="flex-1">{children}</main>
-            <Footer />
-            <MobileBottomNav />
-          </CartProvider>
-        </AdminAuthProvider>
+        <CustomerAuthProvider>
+          <AdminAuthProvider>
+            <CartProvider>
+              <Header />
+              <CartDrawer />
+              <main className="flex-1">{children}</main>
+              <Footer />
+              <MobileBottomNav />
+            </CartProvider>
+          </AdminAuthProvider>
+        </CustomerAuthProvider>
       </body>
     </html>
   );

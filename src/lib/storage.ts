@@ -14,6 +14,7 @@ import {
   Category,
   ProductLot,
   SiteSettings,
+  Customer,
 } from './types';
 import { DEFAULT_PRICING_RULES } from './pricing';
 import { generateStandardTitle, generateStandardDescription } from './ads-generator';
@@ -34,6 +35,7 @@ export interface DatabaseSchema {
   homeSections: HomeSection[];
   categories: Category[];
   lots: ProductLot[];
+  customers?: (Customer & { passwordHash?: string })[];
 }
 
 function getInitialProducts(): Product[] {

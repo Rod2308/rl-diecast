@@ -21,11 +21,13 @@ import {
 } from 'lucide-react';
 import { useCart } from '@/lib/cart-context';
 import { useAdminAuth } from '@/lib/admin-auth-context';
+import { useCustomerAuth } from '@/lib/customer-auth-context';
 
 export default function Header() {
   const router = useRouter();
   const { totalItems, setIsCartOpen } = useCart();
   const { isAdmin, openLoginModal } = useAdminAuth();
+  const { customer, isAuthenticated: isCustomerAuthenticated } = useCustomerAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(2);
@@ -120,13 +122,25 @@ export default function Header() {
               </button>
             )}
 
-            {/* Minha Conta */}
+            {/* Minha Conta do Cliente */}
             <Link
               href="/conta"
-              className="p-2 rounded-xl text-neutral-300 hover:text-white hover:bg-white/5 transition-colors relative"
-              title="Minha Conta e Pré-vendas"
+              className="flex items-center gap-1.5 p-1.5 pr-2.5 rounded-xl text-neutral-300 hover:text-white hover:bg-white/5 transition-colors text-xs font-semibold"
+              title={isCustomerAuthenticated && customer ? `Conta de ${customer.name}` : 'Acessar ou Criar Minha Conta'}
             >
-              <User className="w-5 h-5 text-neutral-300 hover:text-amber-400 transition-colors" />
+              {isCustomerAuthenticated && customer ? (
+                <>
+                  <div className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-300 flex items-center justify-center font-bold text-[11px]">
+                    {customer.name.slice(0, 1).toUpperCase()}
+                  </div>
+                  <span className="hidden lg:inline text-white font-bold">{customer.name.split(' ')[0]}</span>
+                </>
+              ) : (
+                <>
+                  <User className="w-5 h-5 text-neutral-300 hover:text-amber-400 transition-colors" />
+                  <span className="hidden md:inline text-neutral-300 text-xs">Entrar</span>
+                </>
+              )}
             </Link>
 
             {/* Notificações */}
@@ -258,6 +272,22 @@ export default function Header() {
             >
               <Zap className="w-4 h-4 text-emerald-400" />
               Pronta-Entrega
+            </Link>
+            <Link
+              href="/conta"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={`p-3 rounded-xl flex items-center gap-2 ${
+                isCustomerAuthenticated && customer
+                  ? 'bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold'
+                  : 'bg-[#111520] hover:bg-[#161c2b] text-neutral-200 font-semibold'
+              }`}
+            >
+              <User className="w-4 h-4 text-amber-400" />
+              <span className="truncate">
+                {isCustomerAuthenticated && customer
+                  ? `Olá, ${customer.name.split(' ')[0]}`
+                  : 'Minha Conta / Entrar'}
+              </span>
             </Link>
             <Link
               href="/garagem"
