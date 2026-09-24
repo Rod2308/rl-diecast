@@ -1,6 +1,180 @@
 {
   "products": [
     {
+      "id": "prod-pr-003",
+      "sku": "PR640145",
+      "mgtCode": "PR640145",
+      "title": "Pré-venda Pop Race • 1/64 Aston Martin Valkyrie AMR Pro British Racing Green PR640145",
+      "slug": "pop-race-aston-martin-valkyrie-amr-pro-pr640145",
+      "brand": "Pop Race",
+      "scale": "1:64",
+      "vehicleModel": "Aston Martin Valkyrie AMR Pro",
+      "colorOrEdition": "British Racing Green c/ Detalhes Neon",
+      "material": "Diecast metal c/ asas aerodinâmicas e difusor ativo",
+      "packagingType": "Caixa de colecionador lacrada",
+      "description": "🏁 **ASTON MARTIN VALKYRIE AMR PRO - POP RACE**\n\nHipercarro de pista em escala 1:64 com fidelidade máxima ao bólido de Goodwood.",
+      "costPrice": 78,
+      "salePrice": 139.9,
+      "isPreOrder": true,
+      "downPaymentValue": 20,
+      "balanceValue": 119.9,
+      "arrivalForecast": "Setembro de 2026",
+      "stock": 15,
+      "status": "PRE_VENDA",
+      "images": [
+        {
+          "id": "img-pr-3",
+          "url": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80",
+          "isMain": true,
+          "order": 0
+        }
+      ],
+      "isFeatured": true,
+      "isNewRelease": true,
+      "sourceSupplier": "MINI_GT_BRASIL",
+      "createdAt": "2026-09-24T02:41:09.801Z",
+      "updatedAt": "2026-09-24T02:41:09.801Z"
+    },
+    {
+      "id": "prod-kh-003",
+      "sku": "KHMG072",
+      "mgtCode": "KHMG072",
+      "title": "Pré-venda Kaido House • 1/64 Datsun Fairlady Z Kaido GT Advan Racing KHMG072",
+      "slug": "kaido-house-datsun-fairlady-z-advan-khmg072",
+      "brand": "Kaido House",
+      "scale": "1:64",
+      "vehicleModel": "Datsun Fairlady Z Kaido GT",
+      "colorOrEdition": "Advan Racing Livery Black/Red",
+      "material": "Diecast metal c/ capô que abre e motor cromado",
+      "packagingType": "Caixa de luxo especial Kaido House",
+      "description": "🔥 **KAIDO HOUSE DATSUN FAIRLADY Z KAIDO GT ADVAN RACING**\n\nDesign exclusivo de Jun Imai. Capô articulado com motor totalmente detalhado e rodas personalizadas.",
+      "costPrice": 98,
+      "salePrice": 179.9,
+      "isPreOrder": true,
+      "downPaymentValue": 25,
+      "balanceValue": 154.9,
+      "arrivalForecast": "Outubro de 2026",
+      "stock": 18,
+      "status": "PRE_VENDA",
+      "images": [
+        {
+          "id": "img-kh-3",
+          "url": "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80",
+          "isMain": true,
+          "order": 0
+        }
+      ],
+      "isFeatured": true,
+      "isNewRelease": true,
+      "sourceSupplier": "MINI_GT_BRASIL",
+      "createdAt": "2026-09-24T02:41:09.801Z",
+      "updatedAt": "2026-09-24T02:41:09.801Z"
+    },
+    {
+      "id": "prod-bbr-003",
+      "sku": "BBR64003",
+      "mgtCode": "BBR64003",
+      "title": "Pré-venda BBR Models • 1/64 Maserati MC20 Cielo Spyder Blu Infinito BBR64003",
+      "slug": "bbr-models-maserati-mc20-cielo-blu-infinito-bbr64003",
+      "brand": "BBR Models",
+      "scale": "1:64",
+      "vehicleModel": "Maserati MC20 Cielo Spyder",
+      "colorOrEdition": "Blu Infinito Metalizado",
+      "material": "Diecast metal c/ interior detalhado e pneus de borracha",
+      "packagingType": "Caixa Box Acrílico Luxo",
+      "description": "🌊 **MASERATI MC20 CIELO SPYDER - BLU INFINITO**\n\nEdição limitada BBR Models 1:64 com teto de vidro retrátil e pinças de freio pintadas.",
+      "costPrice": 130,
+      "salePrice": 214.9,
+      "isPreOrder": true,
+      "downPaymentValue": 30,
+      "balanceValue": 184.9,
+      "arrivalForecast": "Dezembro de 2026",
+      "stock": 10,
+      "status": "PRE_VENDA",
+      "images": [
+        {
+          "id": "img-bbr-3",
+          "url": "https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?auto=format&fit=crop&w=800&q=80",
+          "isMain": true,
+          "order": 0
+        }
+      ],
+      "isFeatured": false,
+      "isNewRelease": true,
+      "sourceSupplier": "MINI_GT_BRASIL",
+      "createdAt": "2026-09-24T02:41:09.801Z",
+      "updatedAt": "2026-09-24T02:41:09.801Z"
+    },
+    {
+      "id": "prod-bbr-002",
+      "sku": "BBR64002",
+      "mgtCode": "BBR64002",
+      "title": "BBR Models • 1/64 Ferrari 296 GTB Assetto Fiorano Rosso Corsa BBR64002",
+      "slug": "bbr-models-ferrari-296-gtb-rosso-corsa-bbr64002",
+      "brand": "BBR Models",
+      "scale": "1:64",
+      "vehicleModel": "Ferrari 296 GTB Assetto Fiorano",
+      "colorOrEdition": "Rosso Corsa c/ Faixas Argento Nürburgring",
+      "material": "Diecast metal c/ base expositora e cúpula de acrílico",
+      "packagingType": "Caixa Box Acrílico Luxo",
+      "description": "🏎️ **FERRARI 296 GTB ASSETTO FIORANO - ROSSO CORSA**\n\nRéplica de ultra precisão BBR Models 1:64. Disponível para pronta-entrega imediata com nota fiscal.",
+      "costPrice": 135,
+      "salePrice": 219.9,
+      "isPreOrder": false,
+      "downPaymentValue": 0,
+      "balanceValue": 0,
+      "stock": 6,
+      "status": "PRONTA_ENTREGA",
+      "images": [
+        {
+          "id": "img-bbr-2",
+          "url": "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=800&q=80",
+          "isMain": true,
+          "order": 0
+        }
+      ],
+      "isFeatured": true,
+      "isNewRelease": false,
+      "sourceSupplier": "MINI_GT_BRASIL",
+      "createdAt": "2026-09-24T02:41:09.801Z",
+      "updatedAt": "2026-09-24T02:41:09.801Z"
+    },
+    {
+      "id": "prod-bbr-001",
+      "sku": "BBR64001",
+      "mgtCode": "BBR64001",
+      "title": "Pré-venda BBR Models • 1/64 Ferrari 499P #51 Winner 24h Le Mans 2023 BBR64001",
+      "slug": "bbr-models-ferrari-499p-51-le-mans-bbr64001",
+      "brand": "BBR Models",
+      "scale": "1:64",
+      "vehicleModel": "Ferrari 499P #51 Le Mans",
+      "colorOrEdition": "Rosso Scuderia #51 Winner",
+      "material": "Diecast metal luxo com detalhes em resina e pneus de borracha",
+      "packagingType": "Caixa de colecionador luxo com display de acrílico e base gravada",
+      "description": "🏆 **FERRARI 499P #51 - VENCEDOR HISTÓRICO DAS 24 HORAS DE LE MANS 2023**\n\nExemplar oficial da BBR Models em escala 1:64, acabamento impecável, pintura original Rosso Scuderia e aerodinâmica hiper detalhada.",
+      "costPrice": 140,
+      "salePrice": 229.9,
+      "isPreOrder": true,
+      "downPaymentValue": 35,
+      "balanceValue": 194.9,
+      "arrivalForecast": "Novembro de 2026",
+      "stock": 12,
+      "status": "PRE_VENDA",
+      "images": [
+        {
+          "id": "img-bbr-1",
+          "url": "https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=800&q=80",
+          "isMain": true,
+          "order": 0
+        }
+      ],
+      "isFeatured": true,
+      "isNewRelease": true,
+      "sourceSupplier": "MINI_GT_BRASIL",
+      "createdAt": "2026-09-24T02:41:09.800Z",
+      "updatedAt": "2026-09-24T02:41:09.801Z"
+    },
+    {
       "id": "prod-1790209908179-xhv15",
       "sku": "PR640122",
       "mgtCode": "PR640122",
@@ -20,7 +194,7 @@
       "balanceValue": 112.9,
       "arrivalForecast": "Agosto de 2026",
       "stock": 20,
-      "status": "AGUARDANDO_APROVACAO",
+      "status": "PRE_VENDA",
       "images": [
         {
           "id": "img-sync-1790209908179-79gf",
@@ -57,7 +231,7 @@
       "balanceValue": 153.9,
       "arrivalForecast": "Novembro de 2026",
       "stock": 30,
-      "status": "AGUARDANDO_APROVACAO",
+      "status": "PRE_VENDA",
       "images": [
         {
           "id": "img-sync-1790209908178-oet6",
@@ -94,7 +268,7 @@
       "balanceValue": 99.9,
       "arrivalForecast": "Outubro de 2026",
       "stock": 48,
-      "status": "AGUARDANDO_APROVACAO",
+      "status": "PRE_VENDA",
       "images": [
         {
           "id": "img-sync-1790209908178-xhb0",

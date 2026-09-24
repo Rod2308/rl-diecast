@@ -174,19 +174,19 @@ export default function Header() {
               <Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400/40" />
               <span>Pronta-Entrega</span>
             </Link>
-            <Link href="/catalogo?marca=Mini+GT" className="hover:text-amber-300 transition-colors">
+            <Link href="/catalogo?marca=Mini+GT" className="hover:text-amber-300 transition-colors py-1 hover:border-b-2 hover:border-amber-400">
               Mini GT
             </Link>
-            <Link href="/catalogo?marca=Kaido+House" className="hover:text-amber-300 transition-colors">
+            <Link href="/catalogo?marca=Kaido+House" className="hover:text-amber-300 transition-colors py-1 hover:border-b-2 hover:border-amber-400">
               Kaido House
             </Link>
-            <Link href="/catalogo?marca=Tarmac+Works" className="hover:text-amber-300 transition-colors">
+            <Link href="/catalogo?marca=Tarmac+Works" className="hover:text-amber-300 transition-colors py-1 hover:border-b-2 hover:border-amber-400">
               Tarmac Works
             </Link>
-            <Link href="/catalogo?marca=BBR+Models" className="hover:text-amber-300 transition-colors">
+            <Link href="/catalogo?marca=BBR+Models" className="hover:text-amber-300 transition-colors py-1 hover:border-b-2 hover:border-amber-400">
               BBR Models
             </Link>
-            <Link href="/catalogo?marca=Pop+Race" className="hover:text-amber-300 transition-colors">
+            <Link href="/catalogo?marca=Pop+Race" className="hover:text-amber-300 transition-colors py-1 hover:border-b-2 hover:border-amber-400">
               Pop Race
             </Link>
           </div>
@@ -260,6 +260,25 @@ export default function Header() {
             >
               Painel Admin
             </Link>
+          </div>
+
+          {/* Marcas no Mobile Menu */}
+          <div className="pt-2 border-t border-white/10 space-y-2">
+            <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block">
+              Marcas Oficiais
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {['Mini GT', 'Kaido House', 'Tarmac Works', 'BBR Models', 'Pop Race'].map((brand) => (
+                <Link
+                  key={brand}
+                  href={`/catalogo?marca=${encodeURIComponent(brand)}`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-1.5 rounded-lg bg-[#111520] hover:bg-amber-500/20 text-xs font-semibold text-neutral-200 hover:text-amber-300 border border-white/5"
+                >
+                  {brand}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       )}
