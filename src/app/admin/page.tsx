@@ -33,10 +33,10 @@ export default function AdminDashboardPage() {
     setLoading(true);
     try {
       const [resProd, resOrd, resPre, resSync] = await Promise.all([
-        fetch('/api/products?admin=true'),
-        fetch('/api/orders'),
-        fetch('/api/pre-orders'),
-        fetch('/api/sync'),
+        fetch('/api/products?admin=true', { cache: 'no-store' }),
+        fetch('/api/orders', { cache: 'no-store' }),
+        fetch('/api/pre-orders', { cache: 'no-store' }),
+        fetch('/api/sync', { cache: 'no-store' }),
       ]);
 
       const dataProd = await resProd.json();

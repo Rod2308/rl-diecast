@@ -60,7 +60,7 @@ function CatalogContent() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/products');
+      const res = await fetch('/api/products', { cache: 'no-store' });
       const data = await res.json();
       if (data.products) {
         setProducts(data.products);

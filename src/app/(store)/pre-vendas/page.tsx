@@ -1,12 +1,18 @@
 import React from 'react';
 import Link from 'next/link';
 import { Flame, ShieldCheck, Calendar, ArrowRight } from 'lucide-react';
-import { getDatabase } from '@/lib/storage';
+import { getLiveProducts } from '@/lib/products-service';
 import ProductCard from '@/components/ProductCard';
 
-export default function PreVendasPage() {
-  const db = getDatabase();
-  const preOrders = db.products.filter((p) => p.isPreOrder && p.status === 'PRE_VENDA');
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default async function PreVendasPage() {
+  const preOrders = await getLiveProducts({
+    onlyPublished: true,
+    isPreOrder: true,
+    status: 'PRE_VENDA',
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

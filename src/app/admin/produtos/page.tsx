@@ -52,7 +52,7 @@ function AdminProductsContent() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/products?admin=true');
+      const res = await fetch('/api/products?admin=true', { cache: 'no-store' });
       const data = await res.json();
       if (data.products) {
         setProducts(data.products);

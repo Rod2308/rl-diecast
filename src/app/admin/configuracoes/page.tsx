@@ -26,7 +26,7 @@ export default function AdminSettingsPage() {
     setLoading(true);
     try {
       // 1. Carrega configurações atuais
-      const resSettings = await fetch('/api/settings');
+      const resSettings = await fetch('/api/settings', { cache: 'no-store' });
       const dataSettings = await resSettings.json();
       if (dataSettings.settings) {
         const s = dataSettings.settings;
@@ -40,7 +40,7 @@ export default function AdminSettingsPage() {
       }
 
       // 2. Carrega lista de produtos para o seletor do Hero
-      const resProducts = await fetch('/api/products?admin=true');
+      const resProducts = await fetch('/api/products?admin=true', { cache: 'no-store' });
       const dataProducts = await resProducts.json();
       if (dataProducts.products) {
         setProducts(dataProducts.products);

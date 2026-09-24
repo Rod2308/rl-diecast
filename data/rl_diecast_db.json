@@ -651,7 +651,10 @@
       "sourceUrl": "https://www.minigtbrasil.com.br/product/cmudy7n79013mydtndvieaknh",
       "createdAt": "2026-09-23T10:16:44.086Z",
       "updatedAt": "2026-09-24T00:40:00.017Z",
-      "lastSyncedAt": "2026-09-24T00:40:00.017Z"
+      "lastSyncedAt": "2026-09-24T00:40:00.017Z",
+      "technicalSpecs": {
+        "isHeroMain": true
+      }
     },
     {
       "id": "prod-cmudy76g9013hydtnqxafm9hx",
@@ -3938,6 +3941,7 @@
     "contactPhone": "(11) 98765-4321",
     "pixDiscountPercent": 5,
     "freeShippingThreshold": 299,
-    "bannerText": "🚀 PRÉ-VENDAS 2026 ABERTAS • GARANTA SEUS MODELOS MINI GT COM ENTRADA FACILITADA"
+    "bannerText": "🚀 PRÉ-VENDAS 2026 ABERTAS • GARANTA SEUS MODELOS MINI GT COM ENTRADA FACILITADA",
+    "heroProductId": "prod-cmudy7n79013mydtndvieaknh"
   }
 }

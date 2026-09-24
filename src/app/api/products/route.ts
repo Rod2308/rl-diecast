@@ -3,7 +3,17 @@ import { getDatabase, saveDatabase, mapSupabaseProductToProduct } from '@/lib/st
 import { Product } from '@/lib/types';
 import { generateStandardTitle, generateStandardDescription } from '@/lib/ads-generator';
 import { calculatePricing } from '@/lib/pricing';
-import { isSupabaseConfigured, supabaseAdmin, supabase } from '@/lib/supabase';
+import { isSupabaseConfigured, supabaseAdmin } from '@/lib/supabase';
+import { setLiveHeroProduct } from '@/lib/products-service';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,13 +24,13 @@ export async function GET(request: Request) {
   const search = searchParams.get('busca');
   const onlyPublished = searchParams.get('admin') !== 'true';
 
-  // Se Supabase estiver configurado, tenta buscar em nuvem primeiro
+  // 1. Tenta buscar no Supabase
   if (isSupabaseConfigured()) {
     try {
-      let query = supabase.from('products').select('*');
+      let query = supabaseAdmin.from('products').select('*');
 
       if (onlyPublished) {
-        query = query.not('status', 'in', '("RASCUNHO","AGUARDANDO_APROVACAO","ENCERRADO")');
+        query = query.not('status', 'in', '(RASCUNHO,AGUARDANDO_APROVACAO,ENCERRADO)');
       }
 
       if (brand) {
@@ -41,28 +51,32 @@ export async function GET(request: Request) {
         query = query.eq('is_pre_order', false);
       }
 
-      if (search) {
+      if (search && search.trim()) {
+        const q = search.trim();
         query = query.or(
-          `title.ilike.%${search}%,vehicle_model.ilike.%${search}%,sku.ilike.%${search}%,brand.ilike.%${search}%`
+          `title.ilike.%${q}%,vehicle_model.ilike.%${q}%,sku.ilike.%${q}%,brand.ilike.%${q}%,mgt_code.ilike.%${q}%`
         );
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         const products = data.map(mapSupabaseProductToProduct);
-        return NextResponse.json({
-          total: products.length,
-          products,
-          source: 'supabase',
-        });
+        return NextResponse.json(
+          {
+            total: products.length,
+            products,
+            source: 'supabase',
+          },
+          { headers: NO_CACHE_HEADERS }
+        );
       }
     } catch (err) {
       console.warn('Fallback para banco local:', err);
     }
   }
 
-  // Fallback para banco local (data/rl_diecast_db.json)
+  // 2. Fallback para banco local (data/rl_diecast_db.json)
   const db = getDatabase();
   let filtered = [...db.products];
 
@@ -90,8 +104,8 @@ export async function GET(request: Request) {
     filtered = filtered.filter((p) => !p.isPreOrder);
   }
 
-  if (search) {
-    const q = search.toLowerCase();
+  if (search && search.trim()) {
+    const q = search.toLowerCase().trim();
     filtered = filtered.filter(
       (p) =>
         p.title.toLowerCase().includes(q) ||
@@ -102,11 +116,14 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json({
-    total: filtered.length,
-    products: filtered,
-    source: 'local',
-  });
+  return NextResponse.json(
+    {
+      total: filtered.length,
+      products: filtered,
+      source: 'local',
+    },
+    { headers: NO_CACHE_HEADERS }
+  );
 }
 
 export async function POST(request: Request) {
@@ -137,7 +154,7 @@ export async function POST(request: Request) {
     const balanceValue =
       body.balanceValue !== undefined && body.balanceValue !== null
         ? Number(body.balanceValue)
-        : Math.max(0, salePrice - downPaymentValue);
+        : Math.max(0, Math.round((salePrice - downPaymentValue) * 100) / 100);
 
     const title =
       body.title ||
@@ -168,24 +185,53 @@ export async function POST(request: Request) {
         stockLimit: body.stock || 24,
       });
 
-    const slug = `${brand}-${body.vehicleModel}-${body.sku}`
+    const slug = `${brand}-${body.vehicleModel || title}-${body.sku || Date.now()}`
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
 
+    const newId = body.id || `prod-${Date.now()}`;
+
+    let images = body.images;
+    if (body.imageUrl && typeof body.imageUrl === 'string') {
+      images = [
+        {
+          id: `img-${Date.now()}`,
+          url: body.imageUrl,
+          isMain: true,
+          order: 0,
+        },
+      ];
+    } else if (!images || !Array.isArray(images) || images.length === 0) {
+      images = [
+        {
+          id: `img-${Date.now()}`,
+          url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80',
+          isMain: true,
+          order: 0,
+        },
+      ];
+    }
+
+    const technicalSpecs = body.technicalSpecs || body.technical_specs || {};
+    if (body.setAsHero) {
+      technicalSpecs.isHeroMain = true;
+    }
+
     const newProduct: Product = {
-      id: `prod-${Date.now()}`,
-      sku: body.sku,
+      id: newId,
+      sku: body.sku || `MGT${Math.floor(10000 + Math.random() * 90000)}`,
       mgtCode: body.mgtCode || body.sku,
       title,
       slug,
       brand,
       scale,
-      vehicleModel: body.vehicleModel,
+      vehicleModel: body.vehicleModel || title,
       colorOrEdition: body.colorOrEdition || '',
       material: body.material || 'Diecast metal c/ pneus de borracha',
       packagingType: body.packagingType || 'Caixa de colecionador lacrada',
       description,
+      technicalSpecs,
       costPrice,
       salePrice,
       isPreOrder,
@@ -193,25 +239,14 @@ export async function POST(request: Request) {
       balanceValue,
       arrivalForecast: body.arrivalForecast || 'Sob consulta',
       stock: Number(body.stock) || 12,
-      status: body.status || 'PRONTA_ENTREGA',
-      images: body.images || [
-        {
-          id: `img-${Date.now()}`,
-          url: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80',
-          isMain: true,
-          order: 0,
-        },
-      ],
-      isFeatured: !!body.isFeatured,
-      isNewRelease: !!body.isNewRelease,
+      status: body.status || (isPreOrder ? 'PRE_VENDA' : 'PRONTA_ENTREGA'),
+      images,
+      isFeatured: !!body.isFeatured || !!body.setAsHero,
+      isNewRelease: body.isNewRelease !== undefined ? !!body.isNewRelease : true,
       sourceSupplier: 'MANUAL',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-
-    // Salva localmente
-    db.products.unshift(newProduct);
-    saveDatabase(db);
 
     // Salva no Supabase se configurado
     if (isSupabaseConfigured()) {
@@ -226,12 +261,13 @@ export async function POST(request: Request) {
           scale: newProduct.scale,
           vehicle_model: newProduct.vehicleModel,
           color_or_edition: newProduct.colorOrEdition,
-          material: newProduct.material,
-          packaging_type: newProduct.packagingType,
-          description: newProduct.description,
-          cost_price: newProduct.costPrice,
-          sale_price: newProduct.salePrice,
-          is_pre_order: newProduct.isPreOrder,
+          material: newProduct.material || 'Diecast metal c/ pneus de borracha',
+          packaging_type: newProduct.packagingType || 'Caixa de colecionador lacrada',
+          description: newProduct.description || '',
+          technical_specs: newProduct.technicalSpecs || {},
+          cost_price: Number(newProduct.costPrice || 0),
+          sale_price: Number(newProduct.salePrice || 0),
+          is_pre_order: Boolean(newProduct.isPreOrder),
           down_payment_value: newProduct.downPaymentValue,
           balance_value: newProduct.balanceValue,
           arrival_forecast: newProduct.arrivalForecast,
@@ -243,15 +279,36 @@ export async function POST(request: Request) {
           source_supplier: newProduct.sourceSupplier,
           created_at: newProduct.createdAt,
           updated_at: newProduct.updatedAt,
-        });
+        }, { onConflict: 'id' });
+
+        if (body.setAsHero) {
+          await setLiveHeroProduct(newProduct.id);
+        }
       } catch (cloudErr) {
-        console.warn('Erro ao replicar no Supabase:', cloudErr);
+        console.warn('Erro ao salvar no Supabase:', cloudErr);
       }
     }
 
-    return NextResponse.json({ success: true, product: newProduct });
+    // Salva localmente como fallback
+    db.products.unshift(newProduct);
+    if (body.setAsHero) {
+      if (!db.settings) {
+        db.settings = {
+          storeName: 'RL Diecast',
+          contactEmail: 'contato@rldiecast.com.br',
+          contactPhone: '(11) 98765-4321',
+          pixDiscountPercent: 5,
+          freeShippingThreshold: 299,
+          bannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS',
+        };
+      }
+      db.settings.heroProductId = newProduct.id;
+    }
+    saveDatabase(db);
+
+    return NextResponse.json({ success: true, product: newProduct }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 400, headers: NO_CACHE_HEADERS });
   }
 }
 
@@ -260,20 +317,49 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const db = getDatabase();
 
-    const productIndex = db.products.findIndex(
-      (p) => p.id === body.id || (body.sku && p.sku === body.sku)
-    );
-
-    if (productIndex === -1) {
+    const targetId = body.id || body.sku;
+    if (!targetId) {
       return NextResponse.json(
-        { success: false, error: 'Produto não encontrado para atualização' },
-        { status: 404 }
+        { success: false, error: 'ID ou SKU é obrigatório para atualização' },
+        { status: 400, headers: NO_CACHE_HEADERS }
       );
     }
 
-    const current = db.products[productIndex];
+    // 1. Tenta carregar o produto atual do Supabase primeiro
+    let current: Product | null = null;
+    if (isSupabaseConfigured()) {
+      try {
+        const { data: supaRows } = await supabaseAdmin
+          .from('products')
+          .select('*')
+          .or(`id.eq.${body.id || ''},sku.eq.${body.sku || body.id || ''}`)
+          .limit(1);
 
-    // Trata atualização de imagens se enviada como string única ou array
+        if (supaRows && supaRows.length > 0) {
+          current = mapSupabaseProductToProduct(supaRows[0]);
+        }
+      } catch (e) {
+        console.warn('Erro ao buscar produto no Supabase:', e);
+      }
+    }
+
+    // 2. Se não encontrou no Supabase, busca no banco local
+    const localIndex = db.products.findIndex(
+      (p) => p.id === body.id || (body.sku && p.sku === body.sku) || p.id === body.sku
+    );
+
+    if (!current && localIndex !== -1) {
+      current = db.products[localIndex];
+    }
+
+    if (!current) {
+      return NextResponse.json(
+        { success: false, error: 'Produto não encontrado para atualização' },
+        { status: 404, headers: NO_CACHE_HEADERS }
+      );
+    }
+
+    // 3. Imagens
     let updatedImages = current.images || [];
     if (body.imageUrl && typeof body.imageUrl === 'string') {
       updatedImages = [
@@ -289,27 +375,93 @@ export async function PUT(request: Request) {
       updatedImages = body.images;
     }
 
+    // 4. Precificação e Valores
+    const costPrice = body.costPrice !== undefined ? Number(body.costPrice) : current.costPrice;
+    const salePrice = body.salePrice !== undefined ? Number(body.salePrice) : current.salePrice;
+    const downPaymentValue =
+      body.downPaymentValue !== undefined ? Number(body.downPaymentValue) : current.downPaymentValue;
+    const balanceValue =
+      body.balanceValue !== undefined
+        ? Number(body.balanceValue)
+        : Math.max(0, Math.round((salePrice - downPaymentValue) * 100) / 100);
+
+    // 5. Technical Specs & Hero
+    const currentSpecs = (current.technicalSpecs as any) || {};
+    const updatedSpecs = {
+      ...currentSpecs,
+      ...(body.technicalSpecs || body.technical_specs || {}),
+    };
+
+    if (body.setAsHero !== undefined) {
+      updatedSpecs.isHeroMain = Boolean(body.setAsHero);
+    }
+
+    const isPreOrder = body.isPreOrder !== undefined ? Boolean(body.isPreOrder) : current.isPreOrder;
+    const isFeatured = body.isFeatured !== undefined ? Boolean(body.isFeatured) : (body.setAsHero ? true : current.isFeatured);
+
     const updatedProduct: Product = {
       ...current,
       ...body,
       images: updatedImages,
-      costPrice: body.costPrice !== undefined ? Number(body.costPrice) : current.costPrice,
-      salePrice: body.salePrice !== undefined ? Number(body.salePrice) : current.salePrice,
-      downPaymentValue:
-        body.downPaymentValue !== undefined
-          ? Number(body.downPaymentValue)
-          : current.downPaymentValue,
-      balanceValue:
-        body.balanceValue !== undefined ? Number(body.balanceValue) : current.balanceValue,
+      costPrice,
+      salePrice,
+      downPaymentValue,
+      balanceValue,
       stock: body.stock !== undefined ? Number(body.stock) : current.stock,
-      isPreOrder: body.isPreOrder !== undefined ? Boolean(body.isPreOrder) : current.isPreOrder,
-      isFeatured: body.isFeatured !== undefined ? Boolean(body.isFeatured) : current.isFeatured,
+      status: body.status !== undefined ? body.status : current.status,
+      isPreOrder,
+      isFeatured,
+      technicalSpecs: updatedSpecs,
       updatedAt: new Date().toISOString(),
     };
 
-    db.products[productIndex] = updatedProduct;
+    // 6. Atualiza no Supabase
+    if (isSupabaseConfigured()) {
+      try {
+        await supabaseAdmin.from('products').upsert({
+          id: updatedProduct.id,
+          sku: updatedProduct.sku,
+          mgt_code: updatedProduct.mgtCode || null,
+          title: updatedProduct.title,
+          slug: updatedProduct.slug,
+          brand: updatedProduct.brand,
+          scale: updatedProduct.scale,
+          vehicle_model: updatedProduct.vehicleModel,
+          color_or_edition: updatedProduct.colorOrEdition || null,
+          material: updatedProduct.material || 'Diecast metal c/ pneus de borracha',
+          packaging_type: updatedProduct.packagingType || 'Caixa de colecionador lacrada',
+          description: updatedProduct.description || '',
+          technical_specs: updatedSpecs || {},
+          cost_price: Number(updatedProduct.costPrice || 0),
+          sale_price: Number(updatedProduct.salePrice || 0),
+          is_pre_order: Boolean(updatedProduct.isPreOrder),
+          down_payment_value: Number(updatedProduct.downPaymentValue || 0),
+          balance_value: Number(updatedProduct.balanceValue || 0),
+          arrival_forecast: updatedProduct.arrivalForecast || null,
+          stock: Number(updatedProduct.stock || 0),
+          status: updatedProduct.status || 'PRONTA_ENTREGA',
+          images: updatedProduct.images || [],
+          is_featured: updatedProduct.isFeatured,
+          is_new_release: updatedProduct.isNewRelease,
+          source_supplier: updatedProduct.sourceSupplier || 'MANUAL',
+          updated_at: updatedProduct.updatedAt,
+        }, { onConflict: 'id' });
 
-    // Se marcado como destaque principal da Home (Hero)
+        if (body.setAsHero) {
+          await setLiveHeroProduct(updatedProduct.id);
+        }
+      } catch (cloudErr) {
+        console.warn('Erro ao atualizar no Supabase:', cloudErr);
+      }
+    }
+
+    // 7. Atualiza no banco local
+    if (localIndex !== -1) {
+      db.products[localIndex] = updatedProduct;
+    } else {
+      db.products.unshift(updatedProduct);
+    }
+
     if (body.setAsHero) {
       if (!db.settings) {
         db.settings = {
@@ -326,44 +478,9 @@ export async function PUT(request: Request) {
 
     saveDatabase(db);
 
-    // Se Supabase estiver conectado, atualiza na nuvem
-    if (isSupabaseConfigured()) {
-      try {
-        await supabaseAdmin.from('products').upsert({
-          id: updatedProduct.id,
-          sku: updatedProduct.sku,
-          mgt_code: updatedProduct.mgtCode,
-          title: updatedProduct.title,
-          slug: updatedProduct.slug,
-          brand: updatedProduct.brand,
-          scale: updatedProduct.scale,
-          vehicle_model: updatedProduct.vehicleModel,
-          color_or_edition: updatedProduct.colorOrEdition,
-          material: updatedProduct.material,
-          packaging_type: updatedProduct.packagingType,
-          description: updatedProduct.description,
-          cost_price: updatedProduct.costPrice,
-          sale_price: updatedProduct.salePrice,
-          is_pre_order: updatedProduct.isPreOrder,
-          down_payment_value: updatedProduct.downPaymentValue,
-          balance_value: updatedProduct.balanceValue,
-          arrival_forecast: updatedProduct.arrivalForecast,
-          stock: updatedProduct.stock,
-          status: updatedProduct.status,
-          images: updatedProduct.images,
-          is_featured: updatedProduct.isFeatured,
-          is_new_release: updatedProduct.isNewRelease,
-          source_supplier: updatedProduct.sourceSupplier,
-          updated_at: updatedProduct.updatedAt,
-        });
-      } catch (cloudErr) {
-        console.warn('Erro ao atualizar produto no Supabase:', cloudErr);
-      }
-    }
-
-    return NextResponse.json({ success: true, product: updatedProduct });
+    return NextResponse.json({ success: true, product: updatedProduct }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 400, headers: NO_CACHE_HEADERS });
   }
 }
 
@@ -373,23 +490,28 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'ID obrigatório' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'ID obrigatório' },
+        { status: 400, headers: NO_CACHE_HEADERS }
+      );
     }
 
-    const db = getDatabase();
-    db.products = db.products.filter((p) => p.id !== id);
-    saveDatabase(db);
-
+    // 1. Exclui no Supabase
     if (isSupabaseConfigured()) {
       try {
-        await supabaseAdmin.from('products').delete().eq('id', id);
+        await supabaseAdmin.from('products').delete().or(`id.eq.${id},sku.eq.${id}`);
       } catch (e) {
         console.warn('Erro ao excluir no Supabase:', e);
       }
     }
 
-    return NextResponse.json({ success: true });
+    // 2. Exclui no banco local
+    const db = getDatabase();
+    db.products = db.products.filter((p) => p.id !== id && p.sku !== id);
+    saveDatabase(db);
+
+    return NextResponse.json({ success: true }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 400, headers: NO_CACHE_HEADERS });
   }
 }

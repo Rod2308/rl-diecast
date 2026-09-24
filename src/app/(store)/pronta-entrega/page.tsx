@@ -1,12 +1,18 @@
 import React from 'react';
 import Link from 'next/link';
 import { Zap, Truck, ShieldCheck, ArrowRight } from 'lucide-react';
-import { getDatabase } from '@/lib/storage';
+import { getLiveProducts } from '@/lib/products-service';
 import ProductCard from '@/components/ProductCard';
 
-export default function ProntaEntregaPage() {
-  const db = getDatabase();
-  const readyProducts = db.products.filter((p) => !p.isPreOrder && p.status === 'PRONTA_ENTREGA');
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default async function ProntaEntregaPage() {
+  const readyProducts = await getLiveProducts({
+    onlyPublished: true,
+    isPreOrder: false,
+    status: 'PRONTA_ENTREGA',
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
