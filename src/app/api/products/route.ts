@@ -126,6 +126,19 @@ export async function POST(request: Request) {
       body.customDownPaymentPercent
     );
 
+    const salePrice =
+      body.salePrice !== undefined && body.salePrice !== null
+        ? Number(body.salePrice)
+        : pricing.salePrice;
+    const downPaymentValue =
+      body.downPaymentValue !== undefined && body.downPaymentValue !== null
+        ? Number(body.downPaymentValue)
+        : pricing.downPaymentValue;
+    const balanceValue =
+      body.balanceValue !== undefined && body.balanceValue !== null
+        ? Number(body.balanceValue)
+        : Math.max(0, salePrice - downPaymentValue);
+
     const title =
       body.title ||
       generateStandardTitle({
@@ -149,9 +162,9 @@ export async function POST(request: Request) {
         material: body.material,
         packagingType: body.packagingType,
         arrivalForecast: body.arrivalForecast,
-        salePrice: body.salePrice || pricing.salePrice,
-        downPaymentValue: body.downPaymentValue || pricing.downPaymentValue,
-        balanceValue: body.balanceValue || pricing.balanceValue,
+        salePrice,
+        downPaymentValue,
+        balanceValue,
         stockLimit: body.stock || 24,
       });
 
@@ -174,10 +187,10 @@ export async function POST(request: Request) {
       packagingType: body.packagingType || 'Caixa de colecionador lacrada',
       description,
       costPrice,
-      salePrice: body.salePrice || pricing.salePrice,
+      salePrice,
       isPreOrder,
-      downPaymentValue: body.downPaymentValue || pricing.downPaymentValue,
-      balanceValue: body.balanceValue || pricing.balanceValue,
+      downPaymentValue,
+      balanceValue,
       arrivalForecast: body.arrivalForecast || 'Sob consulta',
       stock: Number(body.stock) || 12,
       status: body.status || 'PRONTA_ENTREGA',

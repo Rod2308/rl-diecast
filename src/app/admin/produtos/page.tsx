@@ -19,6 +19,9 @@ import {
   Sparkles,
   Star,
   Trash2,
+  DollarSign,
+  TrendingUp,
+  Check,
 } from 'lucide-react';
 import { Product, ProductStatus } from '@/lib/types';
 import { calculatePricing } from '@/lib/pricing';
@@ -200,8 +203,20 @@ function AdminProductsContent() {
   };
 
   const openEditModal = (product: Product) => {
+    const cost = Number(product.costPrice) || 0;
+    const sale = Number(product.salePrice) || 0;
+    const down = Number(product.downPaymentValue) || 0;
+    const bal =
+      product.balanceValue !== undefined && product.balanceValue !== null
+        ? Number(product.balanceValue)
+        : Math.max(0, Math.round((sale - down) * 100) / 100);
+
     setEditingProduct({
       ...product,
+      costPrice: cost,
+      salePrice: sale,
+      downPaymentValue: down,
+      balanceValue: bal,
       imageUrl: product.images?.[0]?.url || '',
     });
     setIsModalOpen(true);
@@ -230,10 +245,45 @@ function AdminProductsContent() {
 
     try {
       const isExisting = Boolean(editingProduct.id);
+
+      const costPrice = Number(editingProduct.costPrice) || 0;
+      const salePrice = Number(editingProduct.salePrice) || 0;
+      const downPaymentValue = Number(editingProduct.downPaymentValue) || 0;
+      const balanceValue =
+        editingProduct.balanceValue !== undefined && editingProduct.balanceValue !== null
+          ? Number(editingProduct.balanceValue)
+          : Math.max(0, Math.round((salePrice - downPaymentValue) * 100) / 100);
+
+      const payload = {
+        ...editingProduct,
+        costPrice,
+        salePrice,
+        downPaymentValue,
+        balanceValue,
+        stock: Number(editingProduct.stock) || 0,
+        description:
+          editingProduct.description?.trim() ||
+          generateStandardDescription({
+            brand: editingProduct.brand || 'Mini GT',
+            scale: editingProduct.scale || '1:64',
+            vehicleModel: editingProduct.vehicleModel || '',
+            colorOrEdition: editingProduct.colorOrEdition || '',
+            code: editingProduct.mgtCode || editingProduct.sku,
+            isPreOrder: editingProduct.isPreOrder ?? true,
+            material: editingProduct.material,
+            packagingType: editingProduct.packagingType,
+            arrivalForecast: editingProduct.arrivalForecast,
+            salePrice,
+            downPaymentValue,
+            balanceValue,
+            stockLimit: Number(editingProduct.stock) || 12,
+          }),
+      };
+
       const res = await fetch('/api/products', {
         method: isExisting ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingProduct),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
@@ -406,17 +456,31 @@ function AdminProductsContent() {
                     <span className="text-[10px] font-mono text-neutral-400">{p.scale}</span>
                   </td>
 
-                  <td className="p-4 font-mono font-bold text-white">
-                    {formatMoney(p.salePrice)}
+                  <td
+                    className="p-4 font-mono cursor-pointer hover:bg-neutral-800/80 transition-colors group"
+                    onClick={() => openEditModal(p)}
+                    title="Clique para editar valores e preço"
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-white group-hover:text-amber-400">
+                      <span>{formatMoney(p.salePrice)}</span>
+                      <Edit className="w-3 h-3 opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity" />
+                    </div>
                     <span className="block text-[10px] text-neutral-500 font-normal">
                       Custo: {formatMoney(p.costPrice)}
                     </span>
                   </td>
 
-                  <td className="p-4 font-mono">
+                  <td
+                    className="p-4 font-mono cursor-pointer hover:bg-neutral-800/80 transition-colors group"
+                    onClick={() => openEditModal(p)}
+                    title="Clique para alterar valores de entrada e saldo"
+                  >
                     {p.isPreOrder ? (
                       <div>
-                        <span className="text-amber-400 font-bold block">Entr: {formatMoney(p.downPaymentValue)}</span>
+                        <div className="flex items-center gap-1 text-amber-400 font-bold group-hover:text-amber-300">
+                          <span>Entr: {formatMoney(p.downPaymentValue)}</span>
+                          <Edit className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity" />
+                        </div>
                         <span className="text-neutral-400 text-[10px]">Sald: {formatMoney(p.balanceValue)}</span>
                       </div>
                     ) : (
@@ -647,7 +711,7 @@ function AdminProductsContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-neutral-300 font-semibold">SKU / Código</label>
                   <input
@@ -662,52 +726,6 @@ function AdminProductsContent() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-neutral-300 font-semibold">Preço de Custo (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={editingProduct.costPrice || 0}
-                    onChange={(e) => {
-                      const cost = parseFloat(e.target.value) || 0;
-                      const p = calculatePricing(cost, editingProduct.brand || 'Mini GT');
-                      setEditingProduct({
-                        ...editingProduct,
-                        costPrice: cost,
-                        salePrice: p.salePrice,
-                        downPaymentValue: p.downPaymentValue,
-                        balanceValue: p.balanceValue,
-                      });
-                    }}
-                    className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Automatic Calculated Pricing */}
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 grid grid-cols-3 gap-3">
-                <div>
-                  <span className="text-[10px] text-neutral-400 block">Preço de Venda Calculado</span>
-                  <span className="font-mono font-bold text-white text-sm">
-                    {formatMoney(editingProduct.salePrice || 0)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-neutral-400 block">Valor Entrada</span>
-                  <span className="font-mono font-bold text-amber-300 text-sm">
-                    {formatMoney(editingProduct.downPaymentValue || 0)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-neutral-400 block">Saldo Restante</span>
-                  <span className="font-mono font-bold text-neutral-300 text-sm">
-                    {formatMoney(editingProduct.balanceValue || 0)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1">
                   <label className="text-neutral-300 font-semibold">Previsão de Chegada</label>
                   <input
                     type="text"
@@ -719,34 +737,261 @@ function AdminProductsContent() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-neutral-300 font-semibold">Status de Publicação</label>
-                  <select
-                    value={editingProduct.status || 'PRE_VENDA'}
-                    onChange={(e) =>
-                      setEditingProduct({
-                        ...editingProduct,
-                        status: e.target.value as ProductStatus,
-                        isPreOrder: e.target.value === 'PRE_VENDA',
-                      })
-                    }
-                    className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
-                  >
-                    <option value="PRE_VENDA">Pré-Venda</option>
-                    <option value="PRONTA_ENTREGA">Pronta-Entrega</option>
-                    <option value="RASCUNHO">Rascunho (Oculto)</option>
-                    <option value="ESGOTADO">Esgotado</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
                   <label className="text-neutral-300 font-semibold">Estoque (unidades)</label>
                   <input
                     type="number"
-                    value={editingProduct.stock || 0}
+                    value={editingProduct.stock ?? 0}
                     onChange={(e) => setEditingProduct({ ...editingProduct, stock: parseInt(e.target.value, 10) || 0 })}
                     className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-neutral-300 font-semibold">Status de Publicação</label>
+                <select
+                  value={editingProduct.status || 'PRE_VENDA'}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      status: e.target.value as ProductStatus,
+                      isPreOrder: e.target.value === 'PRE_VENDA',
+                    })
+                  }
+                  className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
+                >
+                  <option value="PRE_VENDA">Pré-Venda (Permite Reserva com Entrada)</option>
+                  <option value="PRONTA_ENTREGA">Pronta-Entrega (Envio Imediato)</option>
+                  <option value="RASCUNHO">Rascunho (Oculto na Loja)</option>
+                  <option value="ESGOTADO">Esgotado</option>
+                </select>
+              </div>
+
+              {/* Seção de Precificação Completa e Editável */}
+              <div className="p-4 rounded-xl bg-neutral-950 border border-amber-500/30 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400">
+                      <DollarSign className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <span className="text-xs font-bold text-white block">Valores e Precificação (Editáveis)</span>
+                      <span className="text-[10px] text-neutral-400 block">
+                        Você pode alterar livremente qualquer valor abaixo ou clicar para sugerir pela margem.
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cost = Number(editingProduct.costPrice) || 0;
+                      const p = calculatePricing(cost, editingProduct.brand || 'Mini GT');
+                      setEditingProduct({
+                        ...editingProduct,
+                        salePrice: p.salePrice,
+                        downPaymentValue: p.downPaymentValue,
+                        balanceValue: p.balanceValue,
+                      });
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                    title="Calcular valores sugeridos pela fórmula oficial com base no custo"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Sugerir Valores pela Margem</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* Preço de Custo */}
+                  <div className="space-y-1 bg-neutral-900/60 p-2.5 rounded-xl border border-white/5">
+                    <label className="text-neutral-400 text-[11px] font-semibold flex items-center justify-between">
+                      <span>Preço Custo</span>
+                      <span className="text-[9px] text-neutral-500">Fornecedor</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 font-mono text-xs">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        value={editingProduct.costPrice !== undefined ? editingProduct.costPrice : ''}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setEditingProduct({
+                            ...editingProduct,
+                            costPrice: val,
+                          });
+                        }}
+                        className="w-full bg-black/60 border border-white/10 rounded-lg pl-9 pr-2 py-1.5 text-white font-mono text-xs focus:border-amber-500 focus:outline-none"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <span className="text-[9px] text-neutral-500 block">Custo de aquisição</span>
+                  </div>
+
+                  {/* Preço de Venda */}
+                  <div className="space-y-1 bg-neutral-900/60 p-2.5 rounded-xl border border-amber-500/30">
+                    <label className="text-amber-300 text-[11px] font-bold flex items-center justify-between">
+                      <span>Preço Venda</span>
+                      <span className="text-[9px] text-amber-400/80">Valor Total</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-400 font-mono text-xs">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        value={editingProduct.salePrice !== undefined ? editingProduct.salePrice : ''}
+                        onChange={(e) => {
+                          const sale = parseFloat(e.target.value) || 0;
+                          const currentDown = editingProduct.downPaymentValue || 0;
+                          const newDown = currentDown > sale ? Math.round(sale * 0.15) : currentDown;
+                          const balance = Math.max(0, Math.round((sale - newDown) * 100) / 100);
+                          setEditingProduct({
+                            ...editingProduct,
+                            salePrice: sale,
+                            downPaymentValue: newDown,
+                            balanceValue: balance,
+                          });
+                        }}
+                        className="w-full bg-black/60 border border-amber-500/50 rounded-lg pl-9 pr-2 py-1.5 text-amber-300 font-bold font-mono text-xs focus:border-amber-400 focus:outline-none"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <span className="text-[9px] text-neutral-400 block">Preço ao cliente na loja</span>
+                  </div>
+
+                  {/* Valor de Entrada */}
+                  <div className="space-y-1 bg-neutral-900/60 p-2.5 rounded-xl border border-emerald-500/20">
+                    <label className="text-emerald-300 text-[11px] font-bold flex items-center justify-between">
+                      <span>Valor Entrada</span>
+                      <span className="text-[9px] text-emerald-400/80">Sinal Reserva</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-400 font-mono text-xs">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editingProduct.downPaymentValue !== undefined ? editingProduct.downPaymentValue : ''}
+                        onChange={(e) => {
+                          const down = parseFloat(e.target.value) || 0;
+                          const sale = editingProduct.salePrice || 0;
+                          const balance = Math.max(0, Math.round((sale - down) * 100) / 100);
+                          setEditingProduct({
+                            ...editingProduct,
+                            downPaymentValue: down,
+                            balanceValue: balance,
+                          });
+                        }}
+                        className="w-full bg-black/60 border border-emerald-500/40 rounded-lg pl-9 pr-2 py-1.5 text-emerald-300 font-bold font-mono text-xs focus:border-emerald-400 focus:outline-none"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <span className="text-[9px] text-neutral-400 block">Sinal da pré-venda</span>
+                  </div>
+
+                  {/* Saldo Restante */}
+                  <div className="space-y-1 bg-neutral-900/60 p-2.5 rounded-xl border border-white/5">
+                    <label className="text-neutral-300 text-[11px] font-semibold flex items-center justify-between">
+                      <span>Saldo Restante</span>
+                      <span className="text-[9px] text-neutral-500">Na Chegada</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400 font-mono text-xs">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editingProduct.balanceValue !== undefined ? editingProduct.balanceValue : ''}
+                        onChange={(e) => {
+                          const bal = parseFloat(e.target.value) || 0;
+                          setEditingProduct({
+                            ...editingProduct,
+                            balanceValue: bal,
+                          });
+                        }}
+                        className="w-full bg-black/60 border border-white/10 rounded-lg pl-9 pr-2 py-1.5 text-neutral-200 font-mono text-xs focus:border-white/30 focus:outline-none"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <span className="text-[9px] text-neutral-500 block">Quitado na entrega</span>
+                  </div>
+                </div>
+
+                {/* Resumo de Lucro Bruto Estimado */}
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-black/40 border border-white/5 text-[11px]">
+                  <div className="flex items-center gap-3">
+                    <span className="text-neutral-400 flex items-center gap-1">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                      Lucro Bruto:
+                      <strong className="text-emerald-400 font-mono ml-1">
+                        {formatMoney(Math.max(0, (editingProduct.salePrice || 0) - (editingProduct.costPrice || 0)))}
+                      </strong>
+                    </span>
+                    {editingProduct.costPrice && editingProduct.costPrice > 0 ? (
+                      <span className="text-neutral-400 font-mono text-[10px] bg-neutral-800 px-2 py-0.5 rounded">
+                        Margem: {Math.round((((editingProduct.salePrice || 0) - editingProduct.costPrice) / editingProduct.costPrice) * 100)}%
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="text-[10px] text-neutral-400 font-mono">
+                    Entrada ({formatMoney(editingProduct.downPaymentValue || 0)}) + Saldo ({formatMoney(editingProduct.balanceValue || 0)}) ={' '}
+                    <span className="text-white font-bold">
+                      {formatMoney((editingProduct.downPaymentValue || 0) + (editingProduct.balanceValue || 0))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Descrição do Produto */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-neutral-300 font-semibold">Descrição Comercial & Técnica</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const costPrice = Number(editingProduct.costPrice) || 0;
+                      const salePrice = Number(editingProduct.salePrice) || 0;
+                      const downPaymentValue = Number(editingProduct.downPaymentValue) || 0;
+                      const balanceValue =
+                        editingProduct.balanceValue !== undefined && editingProduct.balanceValue !== null
+                          ? Number(editingProduct.balanceValue)
+                          : Math.max(0, Math.round((salePrice - downPaymentValue) * 100) / 100);
+
+                      const desc = generateStandardDescription({
+                        brand: editingProduct.brand || 'Mini GT',
+                        scale: editingProduct.scale || '1:64',
+                        vehicleModel: editingProduct.vehicleModel || '',
+                        colorOrEdition: editingProduct.colorOrEdition || '',
+                        code: editingProduct.mgtCode || editingProduct.sku,
+                        isPreOrder: editingProduct.isPreOrder ?? true,
+                        material: editingProduct.material,
+                        packagingType: editingProduct.packagingType,
+                        arrivalForecast: editingProduct.arrivalForecast,
+                        salePrice,
+                        downPaymentValue,
+                        balanceValue,
+                        stockLimit: Number(editingProduct.stock) || 12,
+                      });
+                      setEditingProduct({ ...editingProduct, description: desc });
+                    }}
+                    className="text-[10px] text-amber-400 hover:text-amber-300 hover:underline cursor-pointer"
+                  >
+                    ⚡ Regenerar texto com valores atuais
+                  </button>
+                </div>
+                <textarea
+                  rows={4}
+                  value={editingProduct.description || ''}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                  placeholder="Deixe em branco para usar a descrição gerada automaticamente..."
+                  className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white font-mono text-[11px]"
+                />
               </div>
 
               {/* Checkbox Destaque Hero da Home */}
