@@ -135,48 +135,172 @@ export async function getLiveHeroProduct(allProducts?: Product[]): Promise<Produ
     return null;
   }
 
-  // 1. Tenta encontrar no Supabase quem tem technical_specs->isHeroMain = true
   if (isSupabaseConfigured()) {
+    // 1. Tenta obter da tabela site_settings (se existir)
     try {
-      const { data: heroRows } = await supabaseAdmin
+      const { data: setRows } = await supabaseAdmin
+        .from('site_settings')
+        .select('hero_product_id')
+        .eq('id', 'current')
+        .limit(1);
+
+      if (setRows && setRows.length > 0 && setRows[0].hero_product_id) {
+        const heroId = setRows[0].hero_product_id;
+        const found = products.find((p) => p.id === heroId || p.sku === heroId);
+        if (found) return found;
+
+        const { data: directProd } = await supabaseAdmin
+          .from('products')
+          .select('*')
+          .eq('id', heroId)
+          .limit(1);
+
+        if (directProd && directProd.length > 0) {
+          return mapSupabaseProductToProduct(directProd[0]);
+        }
+      }
+    } catch {
+      // Tabela site_settings ainda não existe no Supabase
+    }
+
+    // 2. Consulta no Supabase o produto marcado com isHeroMain = true
+    try {
+      const { data: heroRows, error: errHero } = await supabaseAdmin
         .from('products')
         .select('*')
         .eq('technical_specs->>isHeroMain', 'true')
         .limit(1);
 
-      if (heroRows && heroRows.length > 0) {
-        const found = mapSupabaseProductToProduct(heroRows[0]);
-        if (found.status !== 'RASCUNHO' && found.status !== 'ENCERRADO') {
-          return found;
-        }
+      if (!errHero && heroRows && heroRows.length > 0) {
+        return mapSupabaseProductToProduct(heroRows[0]);
       }
     } catch (e) {
-      console.warn('Erro ao buscar Hero do Supabase:', e);
+      console.warn('Erro ao consultar Hero no Supabase por isHeroMain:', e);
     }
   }
 
-  // 2. Tenta encontrar pelo heroProductId configurado no settings
+  // 3. Consulta no banco local se settings.heroProductId estiver definido
   const db = getDatabase();
   const heroId = db.settings?.heroProductId;
   if (heroId) {
     const foundById = products.find((p) => p.id === heroId || p.sku === heroId);
-    if (foundById && foundById.status !== 'RASCUNHO') {
-      return foundById;
-    }
+    if (foundById) return foundById;
   }
 
-  // 3. Fallback inteligente
-  const heroFallback =
-    products.find((p) => (p.technicalSpecs as any)?.isHeroMain) ||
-    products.find((p) => p.isFeatured && p.isPreOrder && p.status === 'PRE_VENDA') ||
-    products.find((p) => p.isFeatured && p.status !== 'RASCUNHO') ||
-    products.find((p) => p.isPreOrder && p.status === 'PRE_VENDA') ||
-    products[0];
+  // 4. Consulta no banco local se algum produto tem isHeroMain
+  const localHero = products.find((p) => (p.technicalSpecs as any)?.isHeroMain);
+  if (localHero) return localHero;
 
-  return heroFallback || null;
+  // 5. Fallback final apenas se nada estiver configurado
+  return products.find((p) => p.isFeatured && p.status !== 'RASCUNHO') || products[0] || null;
 }
 
 export async function setLiveHeroProduct(productId: string): Promise<boolean> {
+  if (!productId || typeof productId !== 'string') {
+    throw new Error('ID do produto é obrigatório para definir como destaque principal');
+  }
+
+  const cleanId = productId.trim();
+
+  // 1. Atualização com validação no Supabase
+  if (isSupabaseConfigured()) {
+    try {
+      const { data: targetRows, error: errTarget } = await supabaseAdmin
+        .from('products')
+        .select('id, sku, technical_specs')
+        .or(`id.eq.${cleanId},sku.eq.${cleanId}`)
+        .limit(1);
+
+      if (errTarget) {
+        throw new Error(`Erro ao buscar produto no Supabase: ${errTarget.message}`);
+      }
+
+      if (!targetRows || targetRows.length === 0) {
+        throw new Error(`Produto "${cleanId}" não foi encontrado no banco de dados do Supabase.`);
+      }
+
+      const target = targetRows[0];
+      const targetId = target.id;
+      const targetSpecs = (target.technical_specs as any) || {};
+
+      // Remove isHeroMain de qualquer outro produto para garantir unicidade atômica
+      const { data: currentHeroes } = await supabaseAdmin
+        .from('products')
+        .select('id, technical_specs')
+        .eq('technical_specs->>isHeroMain', 'true');
+
+      if (currentHeroes && currentHeroes.length > 0) {
+        for (const item of currentHeroes) {
+          if (item.id !== targetId) {
+            await supabaseAdmin
+              .from('products')
+              .update({
+                technical_specs: { ...((item.technical_specs as any) || {}), isHeroMain: false },
+              })
+              .eq('id', item.id);
+          }
+        }
+      }
+
+      // Marca o produto escolhido como Hero no Supabase
+      const { error: errUpdateTarget } = await supabaseAdmin
+        .from('products')
+        .update({
+          is_featured: true,
+          technical_specs: { ...targetSpecs, isHeroMain: true },
+        })
+        .eq('id', targetId);
+
+      if (errUpdateTarget) {
+        throw new Error(`Erro ao definir Hero no Supabase: ${errUpdateTarget.message}`);
+      }
+
+      // Se a tabela site_settings existir no Supabase, persiste hero_product_id
+      try {
+        await supabaseAdmin.from('site_settings').upsert({
+          id: 'current',
+          hero_product_id: targetId,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' });
+      } catch {
+        // Tabela site_settings ainda não criada
+      }
+
+      // Atualiza banco local de fallback
+      const db = getDatabase();
+      if (!db.settings) {
+        db.settings = {
+          storeName: 'RL Diecast',
+          contactEmail: 'contato@rldiecast.com.br',
+          contactPhone: '(11) 98765-4321',
+          whatsappNumber: '5511987654321',
+          instagramUrl: 'https://instagram.com/rldiecast',
+          pixDiscountPercent: 5,
+          freeShippingThreshold: 299,
+          topBannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS',
+          topBannerActive: true,
+        };
+      }
+      db.settings.heroProductId = targetId;
+      db.products.forEach((p) => {
+        const specs = (p.technicalSpecs as any) || {};
+        if (p.id === targetId || p.sku === target.sku) {
+          p.technicalSpecs = { ...specs, isHeroMain: true };
+          p.isFeatured = true;
+        } else if (specs.isHeroMain) {
+          p.technicalSpecs = { ...specs, isHeroMain: false };
+        }
+      });
+      saveDatabase(db);
+
+      return true;
+    } catch (err: any) {
+      console.error('Falha ao definir produto principal no Supabase:', err);
+      throw err;
+    }
+  }
+
+  // Fallback local se Supabase não configurado
   const db = getDatabase();
   if (!db.settings) {
     db.settings = {
@@ -191,51 +315,17 @@ export async function setLiveHeroProduct(productId: string): Promise<boolean> {
       topBannerActive: true,
     };
   }
-  db.settings.heroProductId = productId;
-  saveDatabase(db);
-
-  if (isSupabaseConfigured()) {
-    try {
-      const { data: currentHeroes } = await supabaseAdmin
-        .from('products')
-        .select('id, technical_specs')
-        .eq('technical_specs->>isHeroMain', 'true');
-
-      if (currentHeroes && currentHeroes.length > 0) {
-        for (const item of currentHeroes) {
-          if (item.id !== productId) {
-            await supabaseAdmin
-              .from('products')
-              .update({
-                technical_specs: { ...(item.technical_specs || {}), isHeroMain: false },
-              })
-              .eq('id', item.id);
-          }
-        }
-      }
-
-      const { data: targetRows } = await supabaseAdmin
-        .from('products')
-        .select('id, technical_specs')
-        .or(`id.eq.${productId},sku.eq.${productId}`)
-        .limit(1);
-
-      if (targetRows && targetRows.length > 0) {
-        const target = targetRows[0];
-        await supabaseAdmin
-          .from('products')
-          .update({
-            is_featured: true,
-            technical_specs: { ...(target.technical_specs || {}), isHeroMain: true },
-          })
-          .eq('id', target.id);
-      }
-      return true;
-    } catch (e) {
-      console.error('Erro ao atualizar Hero no Supabase:', e);
+  db.settings.heroProductId = cleanId;
+  db.products.forEach((p) => {
+    const specs = (p.technicalSpecs as any) || {};
+    if (p.id === cleanId || p.sku === cleanId) {
+      p.technicalSpecs = { ...specs, isHeroMain: true };
+      p.isFeatured = true;
+    } else if (specs.isHeroMain) {
+      p.technicalSpecs = { ...specs, isHeroMain: false };
     }
-  }
-
+  });
+  saveDatabase(db);
   return true;
 }
 
@@ -634,6 +724,8 @@ export async function deleteLiveLot(id: string): Promise<boolean> {
  * ==============================================================================
  */
 export async function getLiveSiteSettings(): Promise<SiteSettings> {
+  let heroProductIdFromProducts: string | undefined;
+
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabaseAdmin
@@ -665,23 +757,40 @@ export async function getLiveSiteSettings(): Promise<SiteSettings> {
     } catch (e) {
       console.warn('Erro ao buscar site_settings no Supabase:', e);
     }
+
+    try {
+      const { data: heroRows } = await supabaseAdmin
+        .from('products')
+        .select('id')
+        .eq('technical_specs->>isHeroMain', 'true')
+        .limit(1);
+
+      if (heroRows && heroRows.length > 0) {
+        heroProductIdFromProducts = heroRows[0].id;
+      }
+    } catch (e) {
+      console.warn('Erro ao buscar hero product por isHeroMain no Supabase:', e);
+    }
   }
 
   const db = getDatabase();
-  return (
-    db.settings || {
-      storeName: 'RL Diecast',
-      contactEmail: 'contato@rldiecast.com.br',
-      contactPhone: '(11) 98765-4321',
-      whatsappNumber: '5511987654321',
-      instagramUrl: 'https://instagram.com/rldiecast',
-      pixDiscountPercent: 5,
-      freeShippingThreshold: 299,
-      topBannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS',
-      topBannerActive: true,
-      topBannerLink: '/pre-vendas',
-    }
-  );
+  const baseSettings = db.settings || {
+    storeName: 'RL Diecast',
+    contactEmail: 'contato@rldiecast.com.br',
+    contactPhone: '(11) 98765-4321',
+    whatsappNumber: '5511987654321',
+    instagramUrl: 'https://instagram.com/rldiecast',
+    pixDiscountPercent: 5,
+    freeShippingThreshold: 299,
+    topBannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS',
+    topBannerActive: true,
+    topBannerLink: '/pre-vendas',
+  };
+
+  return {
+    ...baseSettings,
+    heroProductId: heroProductIdFromProducts || baseSettings.heroProductId,
+  };
 }
 
 export async function saveLiveSiteSettings(settings: Partial<SiteSettings>): Promise<SiteSettings> {

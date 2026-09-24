@@ -21,11 +21,23 @@ import {
   Flame,
   Layout,
   Star,
+  ExternalLink,
+  AlertCircle,
+  Search,
+  Check,
+  Package,
 } from 'lucide-react';
 import { Banner, HomeSection, Product } from '@/lib/types';
 
 export default function AdminBannersAndCMSPage() {
-  const [activeTab, setActiveTab] = useState<'banners' | 'sections' | 'featured'>('banners');
+  const [activeTab, setActiveTab] = useState<'hero' | 'banners' | 'sections' | 'featured'>('hero');
+
+  // Hero Product state (Single source of truth para o topo da Home)
+  const [heroProductId, setHeroProductId] = useState('');
+  const [selectedNewHeroId, setSelectedNewHeroId] = useState('');
+  const [savingHero, setSavingHero] = useState(false);
+  const [heroFeedback, setHeroFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [heroSearch, setHeroSearch] = useState('');
 
   // Banners state
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -43,7 +55,6 @@ export default function AdminBannersAndCMSPage() {
   // Featured Products state
   const [products, setProducts] = useState<Product[]>([]);
   const [featuredIds, setFeaturedIds] = useState<string[]>([]);
-  const [heroProductId, setHeroProductId] = useState('');
   const [savingFeatured, setSavingFeatured] = useState(false);
   const [searchProduct, setSearchProduct] = useState('');
 
@@ -88,13 +99,63 @@ export default function AdminBannersAndCMSPage() {
       const dataProd = await resProd.json();
       const dataSet = await resSet.json();
 
-      if (dataProd.products) setProducts(dataProd.products);
-      if (dataSet.settings) {
-        if (dataSet.settings.featuredProductIds) setFeaturedIds(dataSet.settings.featuredProductIds);
-        if (dataSet.settings.heroProductId) setHeroProductId(dataSet.settings.heroProductId);
+      let activeHeroId = '';
+      if (dataSet.settings?.heroProductId) {
+        activeHeroId = dataSet.settings.heroProductId;
+      }
+
+      if (dataProd.products) {
+        setProducts(dataProd.products);
+        if (!activeHeroId) {
+          const heroProd = dataProd.products.find((p: any) => p.technicalSpecs?.isHeroMain);
+          if (heroProd) activeHeroId = heroProd.id;
+        }
+      }
+
+      if (activeHeroId) {
+        setHeroProductId(activeHeroId);
+        setSelectedNewHeroId((prev) => prev || activeHeroId);
+      }
+
+      if (dataSet.settings?.featuredProductIds) {
+        setFeaturedIds(dataSet.settings.featuredProductIds);
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleSaveHero = async () => {
+    if (!selectedNewHeroId) {
+      setHeroFeedback({ type: 'error', message: 'Selecione um produto para definir como Produto Principal.' });
+      return;
+    }
+    setSavingHero(true);
+    setHeroFeedback(null);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heroProductId: selectedNewHeroId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao salvar produto principal no Supabase.');
+      }
+      setHeroProductId(selectedNewHeroId);
+      const chosen = products.find((p) => p.id === selectedNewHeroId || p.sku === selectedNewHeroId);
+      setHeroFeedback({
+        type: 'success',
+        message: `✅ Sucesso! "${chosen?.title || selectedNewHeroId}" agora é o Produto Principal da Home. O Supabase e o cache da Home foram atualizados em tempo real.`,
+      });
+      await loadProductsAndSettings();
+    } catch (err: any) {
+      setHeroFeedback({
+        type: 'error',
+        message: `❌ Erro ao salvar produto principal: ${err.message}`,
+      });
+    } finally {
+      setSavingHero(false);
     }
   };
 
@@ -305,6 +366,14 @@ export default function AdminBannersAndCMSPage() {
     );
   };
 
+  const currentHero =
+    products.find((p) => p.id === heroProductId || p.sku === heroProductId) ||
+    products.find((p) => (p.technicalSpecs as any)?.isHeroMain) ||
+    null;
+
+  const previewHero =
+    products.find((p) => p.id === selectedNewHeroId || p.sku === selectedNewHeroId) || null;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -315,7 +384,7 @@ export default function AdminBannersAndCMSPage() {
             Conteúdo & Página Inicial (CMS)
           </h1>
           <p className="text-xs text-neutral-400 mt-1">
-            Administre banners principais, carrossel, títulos e a ordem das seções da Home sem mexer no código.
+            Administre o produto principal do topo, banners do carrossel, títulos e a ordem das seções da Home sem mexer no código.
           </p>
         </div>
 
@@ -331,7 +400,19 @@ export default function AdminBannersAndCMSPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-white/10 pb-3 text-xs">
+      <div className="flex flex-wrap gap-2 border-b border-white/10 pb-3 text-xs">
+        <button
+          onClick={() => setActiveTab('hero')}
+          className={`px-4 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === 'hero'
+              ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/20'
+              : 'bg-neutral-900 text-neutral-400 hover:text-white'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Produto Principal da Home</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('banners')}
           className={`px-4 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-2 ${
@@ -365,9 +446,318 @@ export default function AdminBannersAndCMSPage() {
           }`}
         >
           <Star className="w-4 h-4" />
-          <span>Produtos em Destaque</span>
+          <span>Produtos em Destaque ({featuredIds.length})</span>
         </button>
       </div>
+
+      {/* TAB 0: PRODUTO PRINCIPAL DA HOME (HERO SHOWCASE) */}
+      {activeTab === 'hero' && (
+        <div className="space-y-6">
+          {/* Header explicativo */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#0f1422] to-amber-500/5 border border-amber-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-neutral-950 font-black text-[10px] tracking-wider uppercase">
+                  Destaque Máximo da Home
+                </span>
+                <span className="text-xs text-neutral-400">Regra: 1 único produto ativo por vez</span>
+              </div>
+              <h2 className="text-xl font-black text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                Produto Principal da Página Inicial
+              </h2>
+              <p className="text-xs text-neutral-300 max-w-2xl">
+                Este é o produto em evidência absoluta no topo da Home (no card fixo ao lado do banner principal).
+                Ele exibe a foto real do produto, título, SKU, preço e botão de reserva/compra direta.
+              </p>
+            </div>
+
+            <button
+              onClick={handleSaveHero}
+              disabled={savingHero || !selectedNewHeroId || selectedNewHeroId === heroProductId}
+              className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer disabled:cursor-not-allowed transition-all shrink-0"
+            >
+              <Save className="w-4 h-4" />
+              <span>{savingHero ? 'Salvando no Supabase...' : 'Confirmar & Salvar Produto Principal'}</span>
+            </button>
+          </div>
+
+          {/* Feedback Alerta */}
+          {heroFeedback && (
+            <div
+              className={`p-4 rounded-xl border flex items-center gap-3 text-xs font-semibold ${
+                heroFeedback.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-red-500/10 border-red-500/30 text-red-400'
+              }`}
+            >
+              {heroFeedback.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 shrink-0" />
+              )}
+              <span>{heroFeedback.message}</span>
+            </div>
+          )}
+
+          {/* Grid de 2 Colunas: Produto Atual x Selecionar Novo Produto */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* COLUNA 1: PRODUTO ATUAL ATIVO NA HOME */}
+            <div className="p-6 rounded-2xl bg-[#0f1422] border border-white/15 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-black text-sm text-white uppercase tracking-wider">
+                    Produto Principal Atual (Ativo no Site)
+                  </h3>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                  ● ATIVO NA HOME
+                </span>
+              </div>
+
+              {currentHero ? (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-4 items-center bg-neutral-950/60 p-4 rounded-xl border border-white/10">
+                    <div className="w-28 h-28 rounded-xl bg-black border border-white/10 overflow-hidden shrink-0 flex items-center justify-center relative">
+                      <img
+                        src={
+                          currentHero.images?.find((i) => i.isMain)?.url ||
+                          currentHero.images?.[0]?.url ||
+                          (currentHero as any).imageUrl ||
+                          'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=400&q=80'
+                        }
+                        alt={currentHero.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    <div className="space-y-2 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-[11px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                          {currentHero.sku}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-neutral-800 text-neutral-300">
+                          {currentHero.brand || 'RL Diecast'} • 1:64
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            currentHero.status === 'PRE_VENDA'
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : currentHero.status === 'PRONTA_ENTREGA'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : 'bg-neutral-700 text-neutral-300'
+                          }`}
+                        >
+                          {currentHero.status === 'PRE_VENDA'
+                            ? 'Pré-Venda'
+                            : currentHero.status === 'PRONTA_ENTREGA'
+                            ? 'Pronta-Entrega'
+                            : currentHero.status}
+                        </span>
+                      </div>
+
+                      <h4 className="text-white font-extrabold text-sm line-clamp-2">
+                        {currentHero.title}
+                      </h4>
+
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-lg font-black text-amber-400 font-mono">
+                          R$ {currentHero.salePrice.toFixed(2).replace('.', ',')}
+                        </span>
+                        {currentHero.isPreOrder && currentHero.downPaymentValue > 0 && (
+                          <span className="text-[11px] text-amber-300 font-medium">
+                            (Sinal: R$ {currentHero.downPaymentValue.toFixed(2).replace('.', ',')})
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="pt-1">
+                        <a
+                          href={`/produto/${currentHero.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 font-bold transition-all underline underline-offset-4"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Ver página do produto na loja ↗</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-neutral-400 bg-neutral-900/50 p-3 rounded-lg border border-white/5">
+                    💡 Este produto é alimentado diretamente pelo Supabase e está configurado como destaque principal. Para alterá-lo, escolha um produto ao lado e clique em Salvar.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-8 text-center rounded-xl bg-neutral-950/40 border border-white/10 space-y-2">
+                  <Package className="w-8 h-8 text-neutral-500 mx-auto" />
+                  <p className="text-neutral-300 text-xs font-semibold">Nenhum produto principal definido ainda.</p>
+                  <p className="text-neutral-500 text-[11px]">Selecione um produto na coluna ao lado para ativá-lo como destaque na Home.</p>
+                </div>
+              )}
+            </div>
+
+            {/* COLUNA 2: SELETOR DE NOVO PRODUTO & PREVIEW AO VIVO */}
+            <div className="p-6 rounded-2xl bg-[#0f1422] border border-white/15 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-black text-sm text-white uppercase tracking-wider">
+                    Alterar Produto Principal da Home
+                  </h3>
+                </div>
+                <span className="text-[11px] text-neutral-400">
+                  {products.length} produtos disponíveis
+                </span>
+              </div>
+
+              {/* Seletor dropdown direto */}
+              <div className="space-y-1.5">
+                <label className="text-neutral-300 font-semibold text-xs block">
+                  Escolha o produto no catálogo:
+                </label>
+                <select
+                  value={selectedNewHeroId}
+                  onChange={(e) => {
+                    setSelectedNewHeroId(e.target.value);
+                    setHeroFeedback(null);
+                  }}
+                  className="w-full bg-neutral-950 border border-white/20 rounded-xl p-3 text-white text-xs font-medium focus:border-amber-400 focus:outline-none"
+                >
+                  <option value="" disabled>-- Selecione um produto para a Home --</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.sku} — {p.title} (R$ {p.salePrice.toFixed(2).replace('.', ',')})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Campo de filtro rápido caso queira buscar */}
+              <div className="space-y-1.5">
+                <label className="text-neutral-400 text-[11px] block">
+                  Ou digite para filtrar por nome, modelo ou SKU:
+                </label>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-neutral-500" />
+                  <input
+                    type="text"
+                    placeholder="Ex: Skyline, R34, BMW, LBWK, MGT00..."
+                    value={heroSearch}
+                    onChange={(e) => setHeroSearch(e.target.value)}
+                    className="w-full bg-neutral-950 border border-white/15 rounded-xl pl-9 pr-4 py-2 text-white text-xs focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                {heroSearch.trim() && (
+                  <div className="max-h-40 overflow-y-auto space-y-1 pt-1">
+                    {products
+                      .filter((p) => {
+                        const q = heroSearch.toLowerCase();
+                        return p.title.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q);
+                      })
+                      .slice(0, 5)
+                      .map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setSelectedNewHeroId(p.id);
+                            setHeroFeedback(null);
+                          }}
+                          className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-all ${
+                            selectedNewHeroId === p.id
+                              ? 'bg-amber-500/20 border-amber-400/50 text-white'
+                              : 'bg-neutral-900/60 border-white/5 hover:bg-neutral-800 text-neutral-300'
+                          }`}
+                        >
+                          <span className="font-mono text-amber-300 text-[10px] mr-2">{p.sku}</span>
+                          <span className="line-clamp-1 flex-1 font-semibold">{p.title}</span>
+                          <span className="text-[10px] font-mono text-neutral-400 ml-2">
+                            R$ {p.salePrice.toFixed(2).replace('.', ',')}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* PRÉVIA VISUAL DO NOVO PRODUTO ESCOLHIDO (ANTES DE SALVAR) */}
+              <div className="pt-2">
+                <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block mb-2">
+                  Pré-visualização do Produto Escolhido (Como aparecerá na Home):
+                </span>
+
+                {previewHero ? (
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-neutral-900 to-neutral-950 border-2 border-amber-400/40 space-y-3 shadow-xl relative overflow-hidden">
+                    <div className="absolute top-2 right-2">
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[9px] uppercase tracking-wider">
+                        Prévia
+                      </span>
+                    </div>
+
+                    <div className="flex gap-4 items-center">
+                      <div className="w-20 h-20 rounded-lg bg-black border border-white/10 overflow-hidden shrink-0 flex items-center justify-center">
+                        <img
+                          src={
+                            previewHero.images?.find((i) => i.isMain)?.url ||
+                            previewHero.images?.[0]?.url ||
+                            (previewHero as any).imageUrl ||
+                            'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=400&q=80'
+                          }
+                          alt={previewHero.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      <div className="min-w-0 space-y-1">
+                        <span className="font-mono text-[10px] font-bold text-amber-300 block">
+                          {previewHero.sku}
+                        </span>
+                        <h5 className="text-white text-xs font-bold line-clamp-2">
+                          {previewHero.title}
+                        </h5>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-amber-400 font-mono font-bold text-sm">
+                            R$ {previewHero.salePrice.toFixed(2).replace('.', ',')}
+                          </span>
+                          <span className="text-[10px] text-neutral-400">
+                            Status: <strong className="text-white">{previewHero.status}</strong>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-3">
+                      <div className="text-[10px] text-neutral-400">
+                        {selectedNewHeroId === heroProductId ? (
+                          <span className="text-emerald-400 font-medium">✓ Este já é o produto ativo atualmente.</span>
+                        ) : (
+                          <span className="text-amber-300 font-medium">⚠ Pronto para substituir o produto atual.</span>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={handleSaveHero}
+                        disabled={savingHero || !selectedNewHeroId || selectedNewHeroId === heroProductId}
+                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-neutral-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer disabled:cursor-not-allowed transition-all"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{savingHero ? 'Salvando...' : 'Salvar como Principal'}</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-neutral-950/60 border border-dashed border-white/15 text-center text-xs text-neutral-500">
+                    Selecione um produto acima para ver a pré-visualização.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: BANNERS & CARROSSEL */}
       {activeTab === 'banners' && (

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getLiveSiteSettings, saveLiveSiteSettings, setLiveHeroProduct } from '@/lib/products-service';
 
 export const dynamic = 'force-dynamic';
@@ -24,8 +25,17 @@ export async function POST(request: Request) {
       await setLiveHeroProduct(body.heroProductId);
     }
 
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/', 'layout');
+      revalidatePath('/admin/banners', 'page');
+      revalidatePath('/admin/configuracoes', 'page');
+    } catch (e) {
+      console.warn('Aviso: revalidatePath:', e);
+    }
+
     return NextResponse.json({ success: true, settings: updated }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 400, headers: NO_CACHE_HEADERS });
+    return NextResponse.json({ success: false, error: err.message || 'Erro ao salvar configurações' }, { status: 400, headers: NO_CACHE_HEADERS });
   }
 }

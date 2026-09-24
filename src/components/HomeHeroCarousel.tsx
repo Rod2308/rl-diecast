@@ -68,8 +68,10 @@ export default function HomeHeroCarousel({ banners, heroProduct }: HomeHeroCarou
     setCurrentIndex((prev) => (prev + 1) % activeBanners.length);
   };
 
-  const heroImage =
+  const showcaseProductImage =
+    heroProduct?.images?.find((img) => img.isMain)?.url ||
     heroProduct?.images?.[0]?.url ||
+    (heroProduct as any)?.imageUrl ||
     current.desktopImageUrl ||
     'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1000&q=80';
 
@@ -168,17 +170,12 @@ export default function HomeHeroCarousel({ banners, heroProduct }: HomeHeroCarou
               </div>
 
               <div className="aspect-4/3 rounded-2xl overflow-hidden bg-[#07090e] flex items-center justify-center relative border border-white/5">
-                {/* Imagem Desktop / Mobile com fallback */}
-                <picture className="w-full h-full">
-                  {current.mobileImageUrl && (
-                    <source media="(max-width: 640px)" srcSet={current.mobileImageUrl} />
-                  )}
-                  <img
-                    src={current.desktopImageUrl || heroImage}
-                    alt={current.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                </picture>
+                {/* Imagem do Produto Principal */}
+                <img
+                  src={showcaseProductImage}
+                  alt={heroProduct?.title || current.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
 
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0c1017] via-transparent to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4 text-left">
@@ -212,13 +209,14 @@ export default function HomeHeroCarousel({ banners, heroProduct }: HomeHeroCarou
 
               <div className="mt-4 flex items-center justify-between p-3.5 rounded-xl bg-[#080a0f] border border-white/10 text-xs">
                 <span className="text-neutral-300">
-                  {heroProduct?.isPreOrder ? 'Reserve com valor reduzido:' : 'Acesse o catálogo:'}
+                  {heroProduct?.isPreOrder ? 'Reserve com entrada reduzida:' : 'Acesse o produto:'}
                 </span>
                 <Link
                   href={heroProduct ? `/produto/${heroProduct.slug}` : current.buttonUrl || '/catalogo'}
-                  className="font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1.5"
+                  className="font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1.5 transition-colors"
                 >
-                  Ver Detalhes <ArrowRight className="w-3.5 h-3.5" />
+                  <span>{heroProduct?.isPreOrder ? 'Garantir Reserva' : 'Ver Detalhes'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getDatabase, saveDatabase, mapSupabaseProductToProduct } from '@/lib/storage';
 import { Product } from '@/lib/types';
 import { generateStandardTitle, generateStandardDescription } from '@/lib/ads-generator';
@@ -309,6 +310,11 @@ export async function POST(request: Request) {
     }
     saveDatabase(db);
 
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/', 'layout');
+    } catch {}
+
     return NextResponse.json({ success: true, product: newProduct }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 400, headers: NO_CACHE_HEADERS });
@@ -486,6 +492,11 @@ export async function PUT(request: Request) {
 
     saveDatabase(db);
 
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/', 'layout');
+    } catch {}
+
     return NextResponse.json({ success: true, product: updatedProduct }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 400, headers: NO_CACHE_HEADERS });
@@ -517,6 +528,11 @@ export async function DELETE(request: Request) {
     const db = getDatabase();
     db.products = db.products.filter((p) => p.id !== id && p.sku !== id);
     saveDatabase(db);
+
+    try {
+      revalidatePath('/', 'page');
+      revalidatePath('/', 'layout');
+    } catch {}
 
     return NextResponse.json({ success: true }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
