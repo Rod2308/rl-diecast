@@ -1,0 +1,447 @@
+// Prisma Schema for RL Diecast E-Commerce Platform
+// Compatible with SQLite (local development) and PostgreSQL / Supabase (production)
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  MANAGER
+}
+
+enum ProductStatus {
+  PRONTA_ENTREGA
+  PRE_VENDA
+  ESGOTADO
+  RASCUNHO
+  AGUARDANDO_APROVACAO
+  ENCERRADO
+}
+
+enum PreOrderStatus {
+  ENTRADA_PENDENTE
+  ENTRADA_PAGA
+  AGUARDANDO_CHEGADA
+  CHEGOU_ESTOQUE
+  SALDO_PENDENTE
+  QUITADO
+  ENVIADO
+  CANCELADO
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  BOLETO
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+enum GarageStatus {
+  TENHO
+  QUERO_COMPRAR
+  PROCURANDO
+  FAVORITO
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  passwordHash String
+  role         Role        @default(CUSTOMER)
+  customer     Customer?
+  adminUser    AdminUser?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("users")
+}
+
+model Customer {
+  id          String        @id @default(uuid())
+  userId      String        @unique
+  user        User          @relation(fields: [userId], references: [id])
+  fullName    String
+  cpf         String        @unique
+  phone       String
+  birthDate   DateTime?
+  addresses   Address[]
+  orders      Order[]
+  preOrders   PreOrder[]
+  favorites   Favorite[]
+  collections Collection[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("customers")
+}
+
+model Address {
+  id           String    @id @default(uuid())
+  customerId   String
+  customer     Customer  @relation(fields: [customerId], references: [id])
+  street       String
+  number       String
+  complement   String?
+  neighborhood String
+  city         String
+  state        String
+  zipCode      String
+  isDefault    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  @@map("addresses")
+}
+
+model Brand {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+
+  @@map("brands")
+}
+
+model Scale {
+  id        String    @id @default(uuid())
+  name      String    @unique // Ex: "1:64", "1:43"
+  products  Product[]
+
+  @@map("scales")
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Supplier {
+  id             String          @id @default(uuid())
+  name           String          // Ex: "Mini GT Brasil"
+  apiEndpoint    String?
+  apiKeyEncrypted String?
+  feedUrl        String?
+  syncFrequency  String          @default("1H")
+  publishMode    String          @default("REQUIRE_APPROVAL")
+  sourceProducts SourceProduct[]
+  syncLogs       ProductSyncLog[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("suppliers")
+}
+
+model Product {
+  id                   String          @id @default(uuid())
+  sku                  String          @unique
+  mgtCode              String?         @unique
+  title                String
+  slug                 String          @unique
+  brandId              String?
+  brand                Brand?          @relation(fields: [brandId], references: [id])
+  scaleId              String?
+  scale                Scale?          @relation(fields: [scaleId], references: [id])
+  categoryId           String?
+  category             Category?       @relation(fields: [categoryId], references: [id])
+  vehicleModel         String
+  colorOrEdition       String?
+  material             String          @default("Diecast metal")
+  packagingType        String          @default("Caixa Box")
+  description          String
+  costPrice            Float
+  salePrice            Float
+  isPreOrder           Boolean         @default(false)
+  downPaymentValue     Float           @default(0)
+  balanceValue         Float           @default(0)
+  arrivalForecast      String?
+  arrivalConfirmedDate DateTime?
+  stock                Int             @default(0)
+  status               ProductStatus   @default(PRONTA_ENTREGA)
+  images               ProductImage[]
+  isFeatured           Boolean         @default(false)
+  isNewRelease         Boolean         @default(false)
+  sourceProduct        SourceProduct?
+  orderItems           OrderItem[]
+  preOrders            PreOrder[]
+  favorites            Favorite[]
+  collections          Collection[]
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  isMain    Boolean  @default(false)
+  order     Int      @default(0)
+
+  @@map("product_images")
+}
+
+model SourceProduct {
+  id              String    @id @default(uuid())
+  supplierId      String
+  supplier        Supplier  @relation(fields: [supplierId], references: [id])
+  productId       String    @unique
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  originalSku     String
+  originalMgtCode String?
+  originalData    String    // JSON original
+  lastSyncedAt    DateTime  @default(now())
+
+  @@map("source_products")
+}
+
+model ProductSyncLog {
+  id             String    @id @default(uuid())
+  supplierId     String?
+  supplier       Supplier? @relation(fields: [supplierId], references: [id])
+  source         String
+  mode           String
+  status         String
+  itemsProcessed Int       @default(0)
+  itemsAdded     Int       @default(0)
+  itemsUpdated   Int       @default(0)
+  itemsSkipped   Int       @default(0)
+  changesJson    String?   // JSON com diffs
+  createdAt      DateTime  @default(now())
+
+  @@map("product_sync_logs")
+}
+
+model Order {
+  id                String       @id @default(uuid())
+  code              String       @unique
+  customerId        String
+  customer          Customer     @relation(fields: [customerId], references: [id])
+  subtotal          Float
+  shippingCost      Float
+  shippingService   String
+  discount          Float        @default(0)
+  total             Float
+  totalPaidNow      Float
+  totalBalanceLater Float        @default(0)
+  items             OrderItem[]
+  payments          Payment[]
+  preOrders         PreOrder[]
+  trackingCode      String?
+  notes             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 String   @id @default(uuid())
+  orderId            String
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id])
+  title              String
+  price              Float
+  quantity           Int      @default(1)
+  isPreOrder         Boolean  @default(false)
+  payDownPaymentOnly Boolean  @default(false)
+  downPaymentValue   Float    @default(0)
+  balanceValue       Float    @default(0)
+
+  @@map("order_items")
+}
+
+model PreOrder {
+  id               String            @id @default(uuid())
+  orderId          String
+  order            Order             @relation(fields: [orderId], references: [id])
+  customerId       String
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  productId        String
+  product          Product           @relation(fields: [productId], references: [id])
+  totalPrice       Float
+  downPaymentPaid  Float
+  balancePending   Float
+  arrivalForecast  String?
+  status           PreOrderStatus    @default(ENTRADA_PENDENTE)
+  balancePixCode   String?
+  trackingCode     String?
+  payments         PreOrderPayment[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("preorders")
+}
+
+model PreOrderPayment {
+  id          String        @id @default(uuid())
+  preOrderId  String
+  preOrder    PreOrder      @relation(fields: [preOrderId], references: [id], onDelete: Cascade)
+  type        String        // "DOWN_PAYMENT" ou "BALANCE"
+  amount      Float
+  method      PaymentMethod
+  status      PaymentStatus @default(PENDING)
+  gatewayTxId String?
+  paidAt      DateTime?
+
+  @@map("preorder_payments")
+}
+
+model Payment {
+  id           String        @id @default(uuid())
+  orderId      String
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount       Float
+  method       PaymentMethod
+  status       PaymentStatus @default(PENDING)
+  gatewayTxId  String?
+  installments Installment[]
+  createdAt    DateTime      @default(now())
+
+  @@map("payments")
+}
+
+model Installment {
+  id        String   @id @default(uuid())
+  paymentId String
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  number    Int
+  amount    Float
+
+  @@map("installments")
+}
+
+model Favorite {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([customerId, productId])
+  @@map("favorites")
+}
+
+model Collection {
+  id         String       @id @default(uuid())
+  customerId String
+  customer   Customer     @relation(fields: [customerId], references: [id])
+  productId  String
+  product    Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  status     GarageStatus @default(TENHO)
+  userNote   String?
+  addedAt    DateTime     @default(now())
+
+  @@unique([customerId, productId])
+  @@map("collections")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  type      String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model Coupon {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  discountValue Float
+  isPercentage  Boolean   @default(false)
+  minOrderValue Float     @default(0)
+  expiresAt     DateTime?
+  active        Boolean   @default(true)
+
+  @@map("coupons")
+}
+
+model ShippingQuote {
+  id          String   @id @default(uuid())
+  zipCode     String
+  serviceName String
+  price       Float
+  days        String
+  createdAt   DateTime @default(now())
+
+  @@map("shipping_quotes")
+}
+
+model TrackingCode {
+  id          String    @id @default(uuid())
+  orderCode   String
+  code        String
+  carrier     String
+  status      String
+  lastUpdate  DateTime  @default(now())
+
+  @@map("tracking_codes")
+}
+
+model AdminUser {
+  id          String     @id @default(uuid())
+  userId      String     @unique
+  user        User       @relation(fields: [userId], references: [id])
+  name        String
+  permissions String     // JSON com permissões
+  auditLogs   AuditLog[]
+
+  @@map("admin_users")
+}
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  adminUserId String?
+  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id])
+  action      String
+  entity      String
+  entityId    String?
+  details     String?   // JSON
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+
+  @@map("audit_logs")
+}
+
+model PricingRule {
+  id                        String   @id @default(uuid())
+  brand                     String   @unique
+  profitMarginPercent       Float    @default(35)
+  fixedProfit               Float    @default(12)
+  gatewayFeePercent         Float    @default(4.99)
+  packagingCost             Float    @default(6)
+  safetyMargin              Float    @default(5)
+  defaultDownPaymentPercent Float    @default(15)
+  minPrice                  Float?
+  maxPrice                  Float?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@map("pricing_rules")
+}
