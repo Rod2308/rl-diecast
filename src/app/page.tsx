@@ -20,6 +20,18 @@ import ProductCard from '@/components/ProductCard';
 export default function HomePage() {
   const db = getDatabase();
 
+  // Seleciona o produto em destaque da Home (configurado no painel admin ou primeiro destaque)
+  const heroProduct =
+    (db.settings?.heroProductId && db.products.find((p) => p.id === db.settings.heroProductId)) ||
+    db.products.find((p) => p.isFeatured && p.isPreOrder && p.status === 'PRE_VENDA') ||
+    db.products.find((p) => p.isFeatured && p.status !== 'RASCUNHO') ||
+    db.products.find((p) => p.isPreOrder && p.status === 'PRE_VENDA') ||
+    db.products[0];
+
+  const heroImage =
+    heroProduct?.images?.[0]?.url ||
+    'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1000&q=80';
+
   const preOrders = db.products.filter((p) => p.isPreOrder && p.status === 'PRE_VENDA').slice(0, 8);
   const readyToShip = db.products.filter((p) => !p.isPreOrder && p.status === 'PRONTA_ENTREGA').slice(0, 4);
 
@@ -101,32 +113,49 @@ export default function HomePage() {
             <div className="lg:col-span-5 relative">
               <div className="relative rounded-3xl bg-gradient-to-b from-[#151a29] to-[#0c1017] border border-white/15 p-5 shadow-2xl shadow-black/90 overflow-hidden group hover:border-amber-400/40 transition-all">
                 <div className="absolute top-4 right-4 z-20 bg-gradient-to-r from-amber-400 to-amber-500 text-neutral-950 font-black text-[10px] uppercase px-3 py-1 rounded-md shadow-lg shadow-amber-500/30">
-                  Destaque Pré-venda
+                  {heroProduct.isPreOrder ? 'Destaque Pré-venda' : 'Destaque Pronta-Entrega'}
                 </div>
 
                 <div className="aspect-4/3 rounded-2xl overflow-hidden bg-[#07090e] flex items-center justify-center relative border border-white/5">
                   <img
-                    src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1000&q=80"
-                    alt="BMW Z3 Hellrot Mini GT"
+                    src={heroImage}
+                    alt={heroProduct.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0c1017] via-transparent to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4 text-left">
                     <span className="text-[10px] font-mono text-amber-300 uppercase font-black tracking-wider">
-                      Mini GT • MGT01386
+                      {heroProduct.brand} • {heroProduct.mgtCode || heroProduct.sku}
                     </span>
-                    <h4 className="text-white font-black text-lg">Pré-venda Mini GT • 1/64 BMW Z3 Hellrot</h4>
+                    <h4 className="text-white font-black text-lg line-clamp-1">{heroProduct.title}</h4>
                     <div className="flex items-center justify-between mt-1 text-xs">
-                      <span className="text-amber-300 font-extrabold font-mono">Entrada: R$ 15,00</span>
-                      <span className="text-neutral-300 text-[11px]">Chegada: Julho/2026</span>
+                      {heroProduct.isPreOrder ? (
+                        <>
+                          <span className="text-amber-300 font-extrabold font-mono">
+                            Entrada: R$ {heroProduct.downPaymentValue.toFixed(2).replace('.', ',')}
+                          </span>
+                          <span className="text-neutral-300 text-[11px]">
+                            Chegada: {heroProduct.arrivalForecast || '2026'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-emerald-400 font-extrabold font-mono">
+                            R$ {heroProduct.salePrice.toFixed(2).replace('.', ',')}
+                          </span>
+                          <span className="text-neutral-300 text-[11px]">Envio Imediato</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-4 flex items-center justify-between p-3.5 rounded-xl bg-[#080a0f] border border-white/10 text-xs">
-                  <span className="text-neutral-300">Reserve com valor reduzido:</span>
+                  <span className="text-neutral-300">
+                    {heroProduct.isPreOrder ? 'Reserve com valor reduzido:' : 'Compre com envio imediato:'}
+                  </span>
                   <Link
-                    href="/produto/mini-gt-bmw-z3-mgt01386"
+                    href={`/produto/${heroProduct.slug}`}
                     className="font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1.5"
                   >
                     Ver Detalhes do Lote <ArrowRight className="w-3.5 h-3.5" />

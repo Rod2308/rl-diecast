@@ -31,6 +31,7 @@ export interface DatabaseSchema {
     pixDiscountPercent: number;
     freeShippingThreshold: number;
     bannerText: string;
+    heroProductId?: string;
   };
 }
 

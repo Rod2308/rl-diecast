@@ -16,10 +16,17 @@ import {
   Zap,
   RefreshCw,
   ExternalLink,
+  Sparkles,
+  Star,
 } from 'lucide-react';
 import { Product, ProductStatus } from '@/lib/types';
 import { calculatePricing } from '@/lib/pricing';
 import { generateStandardTitle, generateStandardDescription } from '@/lib/ads-generator';
+
+interface EditingProductForm extends Partial<Product> {
+  imageUrl?: string;
+  setAsHero?: boolean;
+}
 
 function AdminProductsContent() {
   const searchParams = useSearchParams();
@@ -32,7 +39,7 @@ function AdminProductsContent() {
 
   // Edit / Create Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
+  const [editingProduct, setEditingProduct] = useState<EditingProductForm | null>(null);
 
   useEffect(() => {
     loadProducts();
@@ -96,6 +103,7 @@ function AdminProductsContent() {
 
   const openNewProductModal = () => {
     setEditingProduct({
+      title: '',
       brand: 'Mini GT',
       scale: '1:64',
       vehicleModel: '',
@@ -124,20 +132,49 @@ function AdminProductsContent() {
     setIsModalOpen(true);
   };
 
+  const openEditModal = (product: Product) => {
+    setEditingProduct({
+      ...product,
+      imageUrl: product.images?.[0]?.url || '',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSetHero = async (product: Product) => {
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heroProductId: product.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`⭐ O produto "${product.title}" foi definido como DESTAQUE PRINCIPAL da página inicial (Hero)!`);
+        loadProducts();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
 
     try {
+      const isExisting = Boolean(editingProduct.id);
       const res = await fetch('/api/products', {
-        method: 'POST',
+        method: isExisting ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingProduct),
       });
       const data = await res.json();
       if (data.success) {
         setIsModalOpen(false);
+        setEditingProduct(null);
         loadProducts();
+      } else {
+        alert(data.error || 'Erro ao salvar produto');
       }
     } catch (e) {
       console.error(e);
@@ -372,6 +409,24 @@ function AdminProductsContent() {
                         </button>
                       )}
 
+                      {/* Definir como Destaque Principal da Home (Hero) */}
+                      <button
+                        onClick={() => handleSetHero(p)}
+                        className="p-1 rounded text-neutral-400 hover:text-amber-400 hover:bg-neutral-800"
+                        title="⭐ Definir como Destaque Principal da Home (Hero)"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Editar Produto e Foto */}
+                      <button
+                        onClick={() => openEditModal(p)}
+                        className="p-1 rounded text-neutral-400 hover:text-amber-400 hover:bg-neutral-800"
+                        title="Editar Produto & Alterar Foto"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+
                       <button
                         onClick={() => handleDuplicate(p)}
                         className="p-1 rounded text-neutral-400 hover:text-white hover:bg-neutral-800"
@@ -404,7 +459,7 @@ function AdminProductsContent() {
           <div className="w-full max-w-2xl bg-[#0e111a] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <h3 className="font-black text-lg text-white uppercase tracking-wider">
-                Cadastrar Nova Miniatura
+                {editingProduct.id ? 'Editar Miniatura' : 'Cadastrar Nova Miniatura'}
               </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-neutral-400 hover:text-white">
                 ✕
@@ -412,6 +467,53 @@ function AdminProductsContent() {
             </div>
 
             <form onSubmit={handleSaveModal} className="space-y-4 text-xs">
+              {/* Título do Produto */}
+              <div className="space-y-1">
+                <label className="text-neutral-300 font-semibold">Título Completo da Miniatura</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Pré-venda Mini GT • 1/64 BMW Z3 Hellrot"
+                  value={editingProduct.title || ''}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, title: e.target.value })}
+                  className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
+                />
+              </div>
+
+              {/* Foto Principal com Preview ao Vivo */}
+              <div className="space-y-2 p-3 bg-neutral-950/80 border border-white/10 rounded-xl">
+                <label className="text-neutral-300 font-semibold block">Foto Principal da Miniatura (URL da Imagem)</label>
+                <div className="flex gap-3 items-center">
+                  <div className="w-16 h-16 rounded-lg bg-black border border-white/10 overflow-hidden shrink-0 flex items-center justify-center">
+                    {editingProduct.imageUrl || editingProduct.images?.[0]?.url ? (
+                      <img
+                        src={editingProduct.imageUrl || editingProduct.images?.[0]?.url}
+                        alt="Preview da Foto"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-[10px] text-neutral-500">Sem foto</span>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <input
+                      type="url"
+                      placeholder="https://exemplo.com/foto-do-carro.jpg"
+                      value={editingProduct.imageUrl || (editingProduct.images?.[0]?.url || '')}
+                      onChange={(e) =>
+                        setEditingProduct({
+                          ...editingProduct,
+                          imageUrl: e.target.value,
+                        })
+                      }
+                      className="w-full bg-neutral-900 border border-white/10 rounded-lg p-2 text-white text-xs font-mono"
+                    />
+                    <span className="text-[10px] text-neutral-400 block">
+                      Cole a URL da foto. O preview ao lado atualiza em tempo real.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-neutral-300 font-semibold">Marca</label>
@@ -423,6 +525,7 @@ function AdminProductsContent() {
                     <option value="Mini GT">Mini GT</option>
                     <option value="Kaido House">Kaido House</option>
                     <option value="Tarmac Works">Tarmac Works</option>
+                    <option value="BBR Models">BBR Models</option>
                     <option value="Pop Race">Pop Race</option>
                     <option value="Inno64">Inno64</option>
                     <option value="Hot Wheels">Hot Wheels</option>
@@ -450,7 +553,7 @@ function AdminProductsContent() {
                     type="text"
                     required
                     placeholder="Ex: BMW Z3, Nissan Skyline R34..."
-                    value={editingProduct.vehicleModel}
+                    value={editingProduct.vehicleModel || ''}
                     onChange={(e) => setEditingProduct({ ...editingProduct, vehicleModel: e.target.value })}
                     className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
                   />
@@ -461,7 +564,7 @@ function AdminProductsContent() {
                   <input
                     type="text"
                     placeholder="Ex: Hellrot, Bayside Blue, Chase Edition..."
-                    value={editingProduct.colorOrEdition}
+                    value={editingProduct.colorOrEdition || ''}
                     onChange={(e) => setEditingProduct({ ...editingProduct, colorOrEdition: e.target.value })}
                     className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
                   />
@@ -474,7 +577,7 @@ function AdminProductsContent() {
                   <input
                     type="text"
                     required
-                    value={editingProduct.sku}
+                    value={editingProduct.sku || ''}
                     onChange={(e) =>
                       setEditingProduct({ ...editingProduct, sku: e.target.value, mgtCode: e.target.value })
                     }
@@ -488,7 +591,7 @@ function AdminProductsContent() {
                     type="number"
                     step="0.01"
                     required
-                    value={editingProduct.costPrice}
+                    value={editingProduct.costPrice || 0}
                     onChange={(e) => {
                       const cost = parseFloat(e.target.value) || 0;
                       const p = calculatePricing(cost, editingProduct.brand || 'Mini GT');
@@ -527,28 +630,68 @@ function AdminProductsContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-neutral-300 font-semibold">Previsão de Chegada</label>
                   <input
                     type="text"
                     placeholder="Ex: Julho de 2026"
-                    value={editingProduct.arrivalForecast}
+                    value={editingProduct.arrivalForecast || ''}
                     onChange={(e) => setEditingProduct({ ...editingProduct, arrivalForecast: e.target.value })}
                     className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-neutral-300 font-semibold">Estoque Inicial (unidades)</label>
+                  <label className="text-neutral-300 font-semibold">Status de Publicação</label>
+                  <select
+                    value={editingProduct.status || 'PRE_VENDA'}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        status: e.target.value as ProductStatus,
+                        isPreOrder: e.target.value === 'PRE_VENDA',
+                      })
+                    }
+                    className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
+                  >
+                    <option value="PRE_VENDA">Pré-Venda</option>
+                    <option value="PRONTA_ENTREGA">Pronta-Entrega</option>
+                    <option value="RASCUNHO">Rascunho (Oculto)</option>
+                    <option value="ESGOTADO">Esgotado</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-neutral-300 font-semibold">Estoque (unidades)</label>
                   <input
                     type="number"
-                    value={editingProduct.stock}
+                    value={editingProduct.stock || 0}
                     onChange={(e) => setEditingProduct({ ...editingProduct, stock: parseInt(e.target.value, 10) || 0 })}
                     className="w-full bg-neutral-950 border border-white/10 rounded-lg p-2 text-white"
                   />
                 </div>
               </div>
+
+              {/* Checkbox Destaque Hero da Home */}
+              <label className="flex items-center gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editingProduct.setAsHero || editingProduct.isFeatured)}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      setAsHero: e.target.checked,
+                      isFeatured: e.target.checked,
+                    })
+                  }
+                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                />
+                <span className="font-bold text-amber-300 text-xs flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  Definir esta miniatura como DESTAQUE PRINCIPAL da página inicial (Hero da Home)
+                </span>
+              </label>
 
               <div className="pt-4 flex justify-end gap-3 border-t border-white/10">
                 <button

@@ -241,3 +241,142 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: err.message }, { status: 400 });
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const db = getDatabase();
+
+    const productIndex = db.products.findIndex(
+      (p) => p.id === body.id || (body.sku && p.sku === body.sku)
+    );
+
+    if (productIndex === -1) {
+      return NextResponse.json(
+        { success: false, error: 'Produto não encontrado para atualização' },
+        { status: 404 }
+      );
+    }
+
+    const current = db.products[productIndex];
+
+    // Trata atualização de imagens se enviada como string única ou array
+    let updatedImages = current.images || [];
+    if (body.imageUrl && typeof body.imageUrl === 'string') {
+      updatedImages = [
+        {
+          id: `img-${Date.now()}`,
+          url: body.imageUrl,
+          isMain: true,
+          order: 0,
+        },
+        ...(current.images?.filter((_, i) => i > 0) || []),
+      ];
+    } else if (Array.isArray(body.images)) {
+      updatedImages = body.images;
+    }
+
+    const updatedProduct: Product = {
+      ...current,
+      ...body,
+      images: updatedImages,
+      costPrice: body.costPrice !== undefined ? Number(body.costPrice) : current.costPrice,
+      salePrice: body.salePrice !== undefined ? Number(body.salePrice) : current.salePrice,
+      downPaymentValue:
+        body.downPaymentValue !== undefined
+          ? Number(body.downPaymentValue)
+          : current.downPaymentValue,
+      balanceValue:
+        body.balanceValue !== undefined ? Number(body.balanceValue) : current.balanceValue,
+      stock: body.stock !== undefined ? Number(body.stock) : current.stock,
+      isPreOrder: body.isPreOrder !== undefined ? Boolean(body.isPreOrder) : current.isPreOrder,
+      isFeatured: body.isFeatured !== undefined ? Boolean(body.isFeatured) : current.isFeatured,
+      updatedAt: new Date().toISOString(),
+    };
+
+    db.products[productIndex] = updatedProduct;
+
+    // Se marcado como destaque principal da Home (Hero)
+    if (body.setAsHero) {
+      if (!db.settings) {
+        db.settings = {
+          storeName: 'RL Diecast',
+          contactEmail: 'contato@rldiecast.com.br',
+          contactPhone: '(11) 98765-4321',
+          pixDiscountPercent: 5,
+          freeShippingThreshold: 299,
+          bannerText: '🚀 PRÉ-VENDAS 2026 MINI GT BRASIL ABERTAS',
+        };
+      }
+      db.settings.heroProductId = updatedProduct.id;
+    }
+
+    saveDatabase(db);
+
+    // Se Supabase estiver conectado, atualiza na nuvem
+    if (isSupabaseConfigured()) {
+      try {
+        await supabaseAdmin.from('products').upsert({
+          id: updatedProduct.id,
+          sku: updatedProduct.sku,
+          mgt_code: updatedProduct.mgtCode,
+          title: updatedProduct.title,
+          slug: updatedProduct.slug,
+          brand: updatedProduct.brand,
+          scale: updatedProduct.scale,
+          vehicle_model: updatedProduct.vehicleModel,
+          color_or_edition: updatedProduct.colorOrEdition,
+          material: updatedProduct.material,
+          packaging_type: updatedProduct.packagingType,
+          description: updatedProduct.description,
+          cost_price: updatedProduct.costPrice,
+          sale_price: updatedProduct.salePrice,
+          is_pre_order: updatedProduct.isPreOrder,
+          down_payment_value: updatedProduct.downPaymentValue,
+          balance_value: updatedProduct.balanceValue,
+          arrival_forecast: updatedProduct.arrivalForecast,
+          stock: updatedProduct.stock,
+          status: updatedProduct.status,
+          images: updatedProduct.images,
+          is_featured: updatedProduct.isFeatured,
+          is_new_release: updatedProduct.isNewRelease,
+          source_supplier: updatedProduct.sourceSupplier,
+          updated_at: updatedProduct.updatedAt,
+        });
+      } catch (cloudErr) {
+        console.warn('Erro ao atualizar produto no Supabase:', cloudErr);
+      }
+    }
+
+    return NextResponse.json({ success: true, product: updatedProduct });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'ID obrigatório' }, { status: 400 });
+    }
+
+    const db = getDatabase();
+    db.products = db.products.filter((p) => p.id !== id);
+    saveDatabase(db);
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabaseAdmin.from('products').delete().eq('id', id);
+      } catch (e) {
+        console.warn('Erro ao excluir no Supabase:', e);
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 400 });
+  }
+}
